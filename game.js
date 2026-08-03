@@ -97,28 +97,84 @@
         const row = Math.min(this.size - 1, Math.max(0, Math.floor((event.clientY - rect.top) / rect.height * this.size)));
         const targetSlot = row * this.size + col;
         if (targetSlot !== startSlot) {
-          const startRow = Math.floor(startSlot / this.size);
-          const startCol = startSlot % this.size;
-          const deltaRow = row - startRow;
-          const deltaCol = col - startCol;
-          const targetSlots = sourceSlots.map(slot => {
-            const sourceRow = Math.floor(slot / this.size);
-            const sourceCol = slot % this.size;
-            const nextRow = sourceRow + deltaRow;
-            const nextCol = sourceCol + deltaCol;
-            return nextRow * this.size + nextCol;
-          });
-          const valid = sourceSlots.every((slot, index) => {
-            const sourceRow = Math.floor(slot / this.size);
-            const sourceCol = slot % this.size;
-            const nextRow = sourceRow + deltaRow;
-            const nextCol = sourceCol + deltaCol;
-            return nextRow >= 0 && nextRow < this.size && nextCol >= 0 && nextCol < this.size && targetSlots[index] >= 0;
-          });
-          if (valid) this.moveGroup(groupIds, sourceSlots, targetSlots);
+          const targetId = this.order[targetSlot];
+          const targetGroup = this.pieces
+            .filter(item => item.dataset.group === this.pieces[targetId].dataset.group)
+            .map(item => Number(item.dataset.id));
+          const snapPlan = targetGroup.some(id => groupIds.includes(id))
+            ? null
+            : this.findSnapPlan(groupIds, sourceSlots, targetGroup);
+          if (snapPlan) {
+            this.moveGroup(snapPlan.ids, snapPlan.sourceSlots, snapPlan.targetSlots);
+          } else {
+            const moveSlots = this.translatedSlots(sourceSlots, row - Math.floor(startSlot / this.size), col - startSlot % this.size);
+            if (moveSlots) this.moveGroup(groupIds, sourceSlots, moveSlots);
+          }
         }
       }
       this.drag = null;
+    }
+
+    translatedSlots(sourceSlots, deltaRow, deltaCol) {
+      const targetSlots = [];
+      for (const slot of sourceSlots) {
+        const nextRow = Math.floor(slot / this.size) + deltaRow;
+        const nextCol = slot % this.size + deltaCol;
+        if (nextRow < 0 || nextRow >= this.size || nextCol < 0 || nextCol >= this.size) return null;
+        targetSlots.push(nextRow * this.size + nextCol);
+      }
+      return targetSlots;
+    }
+
+    findSnapPlan(groupIds, sourceSlots, targetGroup) {
+      const slotById = Array(this.size * this.size);
+      this.order.forEach((id, slot) => { slotById[id] = slot; });
+
+      for (const movingId of groupIds) {
+        const movingOriginalRow = Math.floor(movingId / this.size);
+        const movingOriginalCol = movingId % this.size;
+        for (const fixedId of targetGroup) {
+          const fixedOriginalRow = Math.floor(fixedId / this.size);
+          const fixedOriginalCol = fixedId % this.size;
+          const originalRowDelta = movingOriginalRow - fixedOriginalRow;
+          const originalColDelta = movingOriginalCol - fixedOriginalCol;
+          if (Math.abs(originalRowDelta) + Math.abs(originalColDelta) !== 1) continue;
+
+          const fixedSlot = slotById[fixedId];
+          const desiredRow = Math.floor(fixedSlot / this.size) + originalRowDelta;
+          const desiredCol = fixedSlot % this.size + originalColDelta;
+          if (desiredRow < 0 || desiredRow >= this.size || desiredCol < 0 || desiredCol >= this.size) continue;
+
+          const movingSlot = slotById[movingId];
+          const deltaRow = desiredRow - Math.floor(movingSlot / this.size);
+          const deltaCol = desiredCol - movingSlot % this.size;
+          const targetSlots = this.translatedSlots(sourceSlots, deltaRow, deltaCol);
+          if (targetSlots) return { ids: groupIds, sourceSlots, targetSlots };
+
+          // The correct side is outside the board. Reposition both connected
+          // groups together inside the board while preserving their true
+          // relative arrangement in the source image.
+          const combinedIds = [...groupIds, ...targetGroup];
+          const minOriginalRow = Math.min(...combinedIds.map(id => Math.floor(id / this.size)));
+          const maxOriginalRow = Math.max(...combinedIds.map(id => Math.floor(id / this.size)));
+          const minOriginalCol = Math.min(...combinedIds.map(id => id % this.size));
+          const maxOriginalCol = Math.max(...combinedIds.map(id => id % this.size));
+          const height = maxOriginalRow - minOriginalRow + 1;
+          const width = maxOriginalCol - minOriginalCol + 1;
+          const preferredTop = Math.floor(fixedSlot / this.size) - (fixedOriginalRow - minOriginalRow);
+          const preferredLeft = fixedSlot % this.size - (fixedOriginalCol - minOriginalCol);
+          const top = Math.max(0, Math.min(this.size - height, preferredTop));
+          const left = Math.max(0, Math.min(this.size - width, preferredLeft));
+          const combinedSourceSlots = combinedIds.map(id => slotById[id]);
+          const combinedTargetSlots = combinedIds.map(id => {
+            const relativeRow = Math.floor(id / this.size) - minOriginalRow;
+            const relativeCol = id % this.size - minOriginalCol;
+            return (top + relativeRow) * this.size + left + relativeCol;
+          });
+          return { ids: combinedIds, sourceSlots: combinedSourceSlots, targetSlots: combinedTargetSlots };
+        }
+      }
+      return null;
     }
 
     moveGroup(groupIds, sourceSlots, targetSlots) {
