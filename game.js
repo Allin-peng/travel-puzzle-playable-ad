@@ -15,7 +15,7 @@
     level2Badge: '高能挑战',
     level2Title: '还原旅行风景',
     level2Subtitle: '25 块拼图，挑战你的观察力',
-    level2Tip: '只有完整矩形才能合成并整体拖动',
+    level2Tip: '等面积区域可以整体交换位置',
     difficultyKicker: 'LEVEL UP',
     difficultyTitle: '难度飙升',
     difficultySubtitle: '真正的挑战，现在开始！',
@@ -164,15 +164,41 @@
     moveGroup(groupIds, sourceSlots, targetSlots) {
       const oldOrder = this.order.slice();
       const groupSet = new Set(groupIds);
+      const sourceSet = new Set(sourceSlots);
       const targetSet = new Set(targetSlots);
-      const blockedByPermanentGroup = targetSlots.some(slot => {
+      const displacedGroupRoots = new Set();
+      targetSlots.forEach(slot => {
         const occupantId = oldOrder[slot];
-        if (groupSet.has(occupantId)) return false;
-        return this.groups.get(this.groupById[occupantId]).length > 1;
+        if (!groupSet.has(occupantId)) displacedGroupRoots.add(this.groupById[occupantId]);
       });
-      // Never displace only part of a previously merged group. The attempted
-      // move is cancelled so a permanent group can never be torn apart.
-      if (blockedByPermanentGroup) return false;
+
+      // The destination may contain several groups (for example a 2-piece
+      // rectangle plus one single piece). They can be exchanged together as
+      // long as the destination covers every member of every affected group.
+      // Partial coverage is rejected so a permanent group is never split.
+      for (const root of displacedGroupRoots) {
+        const ids = this.groups.get(root);
+        const fullyCovered = ids.every(id => targetSet.has(oldOrder.indexOf(id)));
+        if (!fullyCovered) return false;
+      }
+
+      const overlaps = targetSlots.some(slot => sourceSet.has(slot));
+      if (!overlaps) {
+        const nextOrder = oldOrder.slice();
+        sourceSlots.forEach((slot, index) => { nextOrder[slot] = oldOrder[targetSlots[index]]; });
+        targetSlots.forEach((slot, index) => { nextOrder[slot] = groupIds[index]; });
+        this.order = nextOrder;
+        this.updateGroups(true);
+        this.checkComplete();
+        return true;
+      }
+
+      // Overlapping translations have fewer vacated cells than the group
+      // area. Allow them only when all displaced pieces are singles; merged
+      // rectangles must use a clean equal-area exchange to preserve shape.
+      const containsDisplacedGroup = [...displacedGroupRoots]
+        .some(root => this.groups.get(root).length > 1);
+      if (containsDisplacedGroup) return false;
 
       const vacated = sourceSlots.filter(slot => !targetSet.has(slot)).sort((a, b) => a - b);
       const displaced = targetSlots

@@ -6,7 +6,7 @@
     transitionDuration: 1100, showFinger: true, level1Size: 2, level2Size: 5,
     level1Badge: '轻松热身', level1Title: '拼好动物房车', level1Subtitle: '拖动拼图，交换它们的位置',
     level1Tip: '拼出完整矩形后，图块自动合成', level2Badge: '高能挑战', level2Title: '还原旅行风景',
-    level2Subtitle: '25 块拼图，挑战你的观察力', level2Tip: '只有完整矩形才能合成并整体拖动',
+    level2Subtitle: '25 块拼图，挑战你的观察力', level2Tip: '等面积区域可以整体交换位置',
     difficultyKicker: 'LEVEL UP', difficultyTitle: '难度飙升', difficultySubtitle: '真正的挑战，现在开始！',
     finishBadge: '挑战成功', finishTitle: '太棒了！', finishSubtitle: '两幅拼图都完成啦', replayText: '再玩一次',
     level1Complete: '完美！第一关完成', level1Image: './assets/level-1.jpg', level2Image: './assets/level-2.jpg'
