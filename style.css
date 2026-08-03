@@ -89,6 +89,7 @@ button { font: inherit; }
   min-height: 0;
   border-radius: 0;
   background-repeat: no-repeat;
+  background-clip: border-box;
   cursor: grab;
   transition: filter .18s;
   will-change: transform;
@@ -106,7 +107,10 @@ button { font: inherit; }
 .puzzle-piece.bond-right::after { border-right-width: 0; }
 .puzzle-piece.bond-bottom::after { border-bottom-width: 0; }
 .puzzle-piece.bond-left::after { border-left-width: 0; }
-.puzzle-piece.grouped { filter: saturate(1.025); }
+.puzzle-piece.grouped {
+  z-index: 2;
+  filter: saturate(1.025);
+}
 .puzzle-piece.merge-pop { animation: mergePop .32s ease-out; }
 .expert-shell .puzzle-piece { border-radius: 0; }
 .puzzle-piece:active { cursor: grabbing; }

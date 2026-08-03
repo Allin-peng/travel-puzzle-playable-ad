@@ -82,6 +82,7 @@
     pointerUp(event) {
       if (!this.drag || event.pointerId !== this.drag.pointerId) return;
       const { piece, groupPieces, groupIds, sourceSlots, startSlot } = this.drag;
+      const droppedRect = piece.getBoundingClientRect();
       groupPieces.forEach(item => {
         item.classList.remove('dragging-group');
         item.style.transform = '';
@@ -91,25 +92,24 @@
       piece.removeEventListener('pointercancel', this.upHandler);
 
       const rect = this.board.getBoundingClientRect();
-      const inside = event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-      if (inside) {
-        const col = Math.min(this.size - 1, Math.max(0, Math.floor((event.clientX - rect.left) / rect.width * this.size)));
-        const row = Math.min(this.size - 1, Math.max(0, Math.floor((event.clientY - rect.top) / rect.height * this.size)));
+      const cellWidth = rect.width / this.size;
+      const cellHeight = rect.height / this.size;
+      const col = Math.round((droppedRect.left - rect.left) / cellWidth);
+      const row = Math.round((droppedRect.top - rect.top) / cellHeight);
+      const targetLeft = rect.left + col * cellWidth;
+      const targetTop = rect.top + row * cellHeight;
+      const aligned =
+        row >= 0 && row < this.size && col >= 0 && col < this.size &&
+        Math.abs(droppedRect.left - targetLeft) <= cellWidth * .16 &&
+        Math.abs(droppedRect.top - targetTop) <= cellHeight * .16 &&
+        Math.abs(droppedRect.right - (targetLeft + cellWidth)) <= cellWidth * .16 &&
+        Math.abs(droppedRect.bottom - (targetTop + cellHeight)) <= cellHeight * .16;
+
+      if (aligned) {
         const targetSlot = row * this.size + col;
         if (targetSlot !== startSlot) {
-          const targetId = this.order[targetSlot];
-          const targetGroup = this.pieces
-            .filter(item => item.dataset.group === this.pieces[targetId].dataset.group)
-            .map(item => Number(item.dataset.id));
-          const snapPlan = targetGroup.some(id => groupIds.includes(id))
-            ? null
-            : this.findSnapPlan(groupIds, sourceSlots, targetId, event, rect);
-          if (snapPlan) {
-            this.moveGroup(snapPlan.ids, snapPlan.sourceSlots, snapPlan.targetSlots);
-          } else {
-            const moveSlots = this.translatedSlots(sourceSlots, row - Math.floor(startSlot / this.size), col - startSlot % this.size);
-            if (moveSlots) this.moveGroup(groupIds, sourceSlots, moveSlots);
-          }
+          const moveSlots = this.translatedSlots(sourceSlots, row - Math.floor(startSlot / this.size), col - startSlot % this.size);
+          if (moveSlots) this.moveGroup(groupIds, sourceSlots, moveSlots);
         }
       }
       this.drag = null;
@@ -124,73 +124,6 @@
         targetSlots.push(nextRow * this.size + nextCol);
       }
       return targetSlots;
-    }
-
-    findSnapPlan(groupIds, sourceSlots, fixedId, event, boardRect) {
-      const slotById = Array(this.size * this.size);
-      this.order.forEach((id, slot) => { slotById[id] = slot; });
-
-      const fixedSlot = slotById[fixedId];
-      const cellWidth = boardRect.width / this.size;
-      const cellHeight = boardRect.height / this.size;
-      const localX = ((event.clientX - boardRect.left) / cellWidth) % 1;
-      const localY = ((event.clientY - boardRect.top) / cellHeight) % 1;
-      const edgeZone = .24;
-
-      for (const movingId of groupIds) {
-        const movingOriginalRow = Math.floor(movingId / this.size);
-        const movingOriginalCol = movingId % this.size;
-        const fixedOriginalRow = Math.floor(fixedId / this.size);
-        const fixedOriginalCol = fixedId % this.size;
-        const originalRowDelta = movingOriginalRow - fixedOriginalRow;
-        const originalColDelta = movingOriginalCol - fixedOriginalCol;
-        if (Math.abs(originalRowDelta) + Math.abs(originalColDelta) !== 1) continue;
-
-        // Snap only when the pointer is deliberately released near the exact
-        // matching edge. Drops in the middle keep their requested grid slot.
-        const nearMatchingEdge =
-          (originalColDelta === -1 && localX <= edgeZone) ||
-          (originalColDelta === 1 && localX >= 1 - edgeZone) ||
-          (originalRowDelta === -1 && localY <= edgeZone) ||
-          (originalRowDelta === 1 && localY >= 1 - edgeZone);
-        if (!nearMatchingEdge) continue;
-
-        const desiredRow = Math.floor(fixedSlot / this.size) + originalRowDelta;
-        const desiredCol = fixedSlot % this.size + originalColDelta;
-
-        if (desiredRow >= 0 && desiredRow < this.size && desiredCol >= 0 && desiredCol < this.size) {
-          const movingSlot = slotById[movingId];
-          const deltaRow = desiredRow - Math.floor(movingSlot / this.size);
-          const deltaCol = desiredCol - movingSlot % this.size;
-          const targetSlots = this.translatedSlots(sourceSlots, deltaRow, deltaCol);
-          if (targetSlots) return { ids: groupIds, sourceSlots, targetSlots };
-        }
-
-          // The correct side is outside the board. Reposition the two groups
-          // only after an intentional edge drop.
-          const fixedGroup = this.pieces
-            .filter(item => item.dataset.group === this.pieces[fixedId].dataset.group)
-            .map(item => Number(item.dataset.id));
-          const combinedIds = [...groupIds, ...fixedGroup];
-          const minOriginalRow = Math.min(...combinedIds.map(id => Math.floor(id / this.size)));
-          const maxOriginalRow = Math.max(...combinedIds.map(id => Math.floor(id / this.size)));
-          const minOriginalCol = Math.min(...combinedIds.map(id => id % this.size));
-          const maxOriginalCol = Math.max(...combinedIds.map(id => id % this.size));
-          const height = maxOriginalRow - minOriginalRow + 1;
-          const width = maxOriginalCol - minOriginalCol + 1;
-          const preferredTop = Math.floor(fixedSlot / this.size) - (fixedOriginalRow - minOriginalRow);
-          const preferredLeft = fixedSlot % this.size - (fixedOriginalCol - minOriginalCol);
-          const top = Math.max(0, Math.min(this.size - height, preferredTop));
-          const left = Math.max(0, Math.min(this.size - width, preferredLeft));
-          const combinedSourceSlots = combinedIds.map(id => slotById[id]);
-          const combinedTargetSlots = combinedIds.map(id => {
-            const relativeRow = Math.floor(id / this.size) - minOriginalRow;
-            const relativeCol = id % this.size - minOriginalCol;
-            return (top + relativeRow) * this.size + left + relativeCol;
-          });
-          return { ids: combinedIds, sourceSlots: combinedSourceSlots, targetSlots: combinedTargetSlots };
-      }
-      return null;
     }
 
     moveGroup(groupIds, sourceSlots, targetSlots) {
