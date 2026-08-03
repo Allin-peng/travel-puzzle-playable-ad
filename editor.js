@@ -14,10 +14,14 @@
   let config = { ...defaults };
   let templateFiles;
   let previewTimer;
+  let previewUrl;
+  let previewVersion = 0;
 
   const fields = [...document.querySelectorAll('[data-field]')];
   const frame = document.getElementById('previewFrame');
   const toast = document.getElementById('editorToast');
+  const previewStatusDot = document.getElementById('previewStatusDot');
+  const previewStatusText = document.getElementById('previewStatusText');
 
   async function loadTemplates() {
     const [html, css, js, image1, image2] = await Promise.all([
@@ -68,12 +72,38 @@
 
   function schedulePreview() {
     clearTimeout(previewTimer);
+    setPreviewStatus('loading', '正在更新预览…');
     previewTimer = setTimeout(updatePreview, 220);
   }
 
   function updatePreview() {
     if (!templateFiles) return;
-    frame.srcdoc = composePlayable();
+    const version = ++previewVersion;
+    const oldUrl = previewUrl;
+    try {
+      const playableBlob = new Blob([composePlayable()], { type: 'text/html;charset=utf-8' });
+      previewUrl = URL.createObjectURL(playableBlob);
+      frame.onload = () => {
+        if (version !== previewVersion) return;
+        if (oldUrl) URL.revokeObjectURL(oldUrl);
+        setPreviewStatus('', '实时手机预览 · 已更新');
+      };
+      frame.onerror = () => {
+        if (version === previewVersion) setPreviewStatus('error', '预览加载失败');
+      };
+      frame.removeAttribute('srcdoc');
+      frame.src = previewUrl;
+      setPreviewStatus('loading', '正在更新预览…');
+    } catch (error) {
+      console.error(error);
+      setPreviewStatus('error', '预览生成失败');
+      showToast('预览生成失败，请重新刷新编辑器');
+    }
+  }
+
+  function setPreviewStatus(state, text) {
+    previewStatusDot.className = state;
+    previewStatusText.textContent = text;
   }
 
   function exportPlayable() {
@@ -95,7 +125,15 @@
   }
 
   fields.forEach(field => {
-    field.addEventListener(field.type === 'text' ? 'input' : 'change', () => readField(field));
+    let lastValue;
+    const update = () => {
+      const value = field.type === 'checkbox' ? field.checked : field.value;
+      if (value === lastValue) return;
+      lastValue = value;
+      readField(field);
+    };
+    field.addEventListener('input', update);
+    field.addEventListener('change', update);
   });
   document.querySelectorAll('.section-title').forEach(button => button.addEventListener('click', () => {
     const section = button.closest('.control-section');
