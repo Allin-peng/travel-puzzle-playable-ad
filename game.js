@@ -134,20 +134,74 @@
       const startRow = Math.floor(startSlot / this.size);
       const col = Math.round(startCol + dx / cellWidth);
       const row = Math.round(startRow + dy / cellHeight);
+      const sourceRect = this.rectangleForSlots(sourceSlots);
+      const clickedOffsetRow = startRow - sourceRect.top;
+      const clickedOffsetCol = startCol - sourceRect.left;
+      const targetTop = row - clickedOffsetRow;
+      const targetLeft = col - clickedOffsetCol;
       const aligned =
-        row >= 0 && row < this.size && col >= 0 && col < this.size &&
-        Math.abs(dx - (col - startCol) * cellWidth) <= cellWidth * .16 &&
-        Math.abs(dy - (row - startRow) * cellHeight) <= cellHeight * .16;
+        targetTop >= 0 && targetLeft >= 0 &&
+        targetTop + sourceRect.height <= this.size && targetLeft + sourceRect.width <= this.size &&
+        Math.abs(dx - (col - startCol) * cellWidth) <= cellWidth * .46 &&
+        Math.abs(dy - (row - startRow) * cellHeight) <= cellHeight * .46;
 
       if (aligned) {
-        const targetSlot = row * this.size + col;
-        if (targetSlot !== startSlot) {
-          const moveSlots = this.translatedSlots(sourceSlots, row - startRow, col - startCol);
-          if (moveSlots) this.moveGroup(groupIds, sourceSlots, moveSlots);
-        }
+        const targetSlots = this.slotsForRectangle(targetTop, targetLeft, sourceRect.height, sourceRect.width);
+        if (!targetSlots.every(slot => sourceSlots.includes(slot))) this.exchangeRectangles(sourceSlots, targetSlots);
       }
       this.drag = null;
       this.draw();
+    }
+
+    rectangleForSlots(slots) {
+      const rows = slots.map(slot => Math.floor(slot / this.size));
+      const cols = slots.map(slot => slot % this.size);
+      const top = Math.min(...rows);
+      const bottom = Math.max(...rows);
+      const left = Math.min(...cols);
+      const right = Math.max(...cols);
+      return { top, left, height: bottom - top + 1, width: right - left + 1 };
+    }
+
+    slotsForRectangle(top, left, height, width) {
+      const slots = [];
+      for (let row = 0; row < height; row++) {
+        for (let col = 0; col < width; col++) slots.push((top + row) * this.size + left + col);
+      }
+      return slots;
+    }
+
+    exchangeRectangles(sourceSlots, targetSlots) {
+      if (sourceSlots.length !== targetSlots.length) return false;
+      const oldOrder = this.order.slice();
+      const sourceSet = new Set(sourceSlots);
+      const targetSet = new Set(targetSlots);
+      if ([...sourceSet].some(slot => targetSet.has(slot))) return false;
+
+      // Both rectangles must contain complete groups. A target rectangle may
+      // freely contain 3 singles, a 2-piece group + 1 single, or any other
+      // combination whose total area exactly fills the rectangle.
+      for (const slots of [sourceSlots, targetSlots]) {
+        const slotSet = new Set(slots);
+        const roots = new Set(slots.map(slot => this.groupById[oldOrder[slot]]));
+        for (const root of roots) {
+          const complete = this.groups.get(root).every(id => slotSet.has(oldOrder.indexOf(id)));
+          if (!complete) return false;
+        }
+      }
+
+      const sourceRect = this.rectangleForSlots(sourceSlots);
+      const targetRect = this.rectangleForSlots(targetSlots);
+      if (sourceRect.height !== targetRect.height || sourceRect.width !== targetRect.width) return false;
+      const orderedSource = this.slotsForRectangle(sourceRect.top, sourceRect.left, sourceRect.height, sourceRect.width);
+      const orderedTarget = this.slotsForRectangle(targetRect.top, targetRect.left, targetRect.height, targetRect.width);
+      const nextOrder = oldOrder.slice();
+      orderedSource.forEach((slot, index) => { nextOrder[slot] = oldOrder[orderedTarget[index]]; });
+      orderedTarget.forEach((slot, index) => { nextOrder[slot] = oldOrder[orderedSource[index]]; });
+      this.order = nextOrder;
+      this.updateGroups(true);
+      this.checkComplete();
+      return true;
     }
 
     translatedSlots(sourceSlots, deltaRow, deltaCol) {
