@@ -142,8 +142,15 @@
       if (aligned) {
         const targetSlot = row * this.size + col;
         if (targetSlot !== startSlot) {
-          const moveSlots = this.translatedSlots(sourceSlots, row - startRow, col - startCol);
-          if (moveSlots) this.moveGroup(groupIds, sourceSlots, moveSlots);
+          const targetId = this.order[targetSlot];
+          const targetGroupIds = this.groups.get(this.groupById[targetId]).slice();
+          const canJoinTarget = !groupIds.includes(targetId) && this.groupsAreOriginalNeighbors(groupIds, targetGroupIds);
+          if (canJoinTarget) {
+            this.mergeGroups(groupIds, targetGroupIds, targetSlot);
+          } else {
+            const moveSlots = this.translatedSlots(sourceSlots, row - startRow, col - startCol);
+            if (moveSlots) this.moveGroup(groupIds, sourceSlots, moveSlots);
+          }
         }
       }
       this.drag = null;
@@ -159,6 +166,106 @@
         targetSlots.push(nextRow * this.size + nextCol);
       }
       return targetSlots;
+    }
+
+    groupsAreOriginalNeighbors(groupA, groupB) {
+      const groupBSet = new Set(groupB);
+      for (const id of groupA) {
+        const row = Math.floor(id / this.size);
+        const col = id % this.size;
+        const neighbors = [];
+        if (col > 0) neighbors.push(id - 1);
+        if (col < this.size - 1) neighbors.push(id + 1);
+        if (row > 0) neighbors.push(id - this.size);
+        if (row < this.size - 1) neighbors.push(id + this.size);
+        if (neighbors.some(neighbor => groupBSet.has(neighbor))) return true;
+      }
+      return false;
+    }
+
+    mergeGroups(groupA, groupB, targetSlot) {
+      const combinedIds = [...new Set([...groupA, ...groupB])];
+      const combinedSet = new Set(combinedIds);
+      const oldOrder = this.order.slice();
+      const rigidGroups = [combinedIds];
+      const singles = [];
+      this.groups.forEach(ids => {
+        if (ids.some(id => combinedSet.has(id))) return;
+        if (ids.length === 1) singles.push(ids[0]);
+        else rigidGroups.push(ids.slice());
+      });
+
+      const placementsFor = (ids, isCombined) => {
+        const rows = ids.map(id => Math.floor(id / this.size));
+        const cols = ids.map(id => id % this.size);
+        const minRow = Math.min(...rows);
+        const maxRow = Math.max(...rows);
+        const minCol = Math.min(...cols);
+        const maxCol = Math.max(...cols);
+        const height = maxRow - minRow + 1;
+        const width = maxCol - minCol + 1;
+        const oldSlots = ids.map(id => oldOrder.indexOf(id));
+        const placements = [];
+        for (let top = 0; top <= this.size - height; top++) {
+          for (let left = 0; left <= this.size - width; left++) {
+            const slots = ids.map(id => {
+              const relativeRow = Math.floor(id / this.size) - minRow;
+              const relativeCol = id % this.size - minCol;
+              return (top + relativeRow) * this.size + left + relativeCol;
+            });
+            const score = isCombined
+              ? Math.abs(slots.reduce((sum, slot) => sum + slot, 0) / slots.length - targetSlot)
+              : slots.reduce((sum, slot, index) => sum + Math.abs(slot - oldSlots[index]), 0);
+            placements.push({ ids, slots, score });
+          }
+        }
+        placements.sort((a, b) => a.score - b.score);
+        return placements;
+      };
+
+      const entries = rigidGroups.map((ids, index) => ({
+        ids,
+        isCombined: index === 0,
+        placements: placementsFor(ids, index === 0)
+      }));
+      const combinedEntry = entries.shift();
+      entries.sort((a, b) => b.ids.length - a.ids.length || a.placements.length - b.placements.length);
+      entries.unshift(combinedEntry);
+
+      const occupied = new Set();
+      const chosen = [];
+      let searchNodes = 0;
+      const placeNext = index => {
+        if (index === entries.length) return true;
+        if (++searchNodes > 120000) return false;
+        for (const placement of entries[index].placements) {
+          if (placement.slots.some(slot => occupied.has(slot))) continue;
+          placement.slots.forEach(slot => occupied.add(slot));
+          chosen.push(placement);
+          if (placeNext(index + 1)) return true;
+          chosen.pop();
+          placement.slots.forEach(slot => occupied.delete(slot));
+        }
+        return false;
+      };
+
+      if (!placeNext(0)) return false;
+      const nextOrder = Array(this.size * this.size).fill(null);
+      chosen.forEach(placement => {
+        placement.slots.forEach((slot, index) => { nextOrder[slot] = placement.ids[index]; });
+      });
+      const freeSlots = nextOrder.map((id, slot) => id === null ? slot : -1).filter(slot => slot >= 0);
+      const availableSingles = singles.slice();
+      freeSlots.forEach(slot => {
+        availableSingles.sort((a, b) => Math.abs(oldOrder.indexOf(a) - slot) - Math.abs(oldOrder.indexOf(b) - slot));
+        nextOrder[slot] = availableSingles.shift();
+      });
+      if (nextOrder.some(id => id === null || id === undefined)) return false;
+
+      this.order = nextOrder;
+      this.updateGroups(true);
+      this.checkComplete();
+      return true;
     }
 
     moveGroup(groupIds, sourceSlots, targetSlots) {

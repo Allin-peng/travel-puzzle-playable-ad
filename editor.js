@@ -57,12 +57,18 @@
   }
 
   function composePlayable() {
+    if (!String(config.level1Image).startsWith('data:image/') || !String(config.level2Image).startsWith('data:image/')) {
+      throw new Error('图片尚未完成内嵌');
+    }
     const safeConfig = JSON.stringify(config).replace(/</g, '\\u003c');
     const safeGame = templateFiles.js.replace(/<\/script/gi, '<\\/script');
     let html = templateFiles.html
       .replace(/\s*<link rel="preload"[^>]+>/g, '')
       .replace('<link rel="stylesheet" href="style.css">', `<style>\n${templateFiles.css}\n</style>`)
       .replace('<script src="game.js"></script>', `<script>window.PUZZLE_CONFIG=${safeConfig};<\/script>\n<script>\n${safeGame}\n<\/script>`);
+    html = html
+      .replace('<meta charset="UTF-8">', '<meta charset="UTF-8">\n  <meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: blob:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\';">')
+      .replace('<title>', '<!-- 独立离线试玩：图片、样式、脚本均已内嵌 -->\n  <title>');
     return html;
   }
 
@@ -78,14 +84,21 @@
 
   function exportPlayable() {
     if (!templateFiles) return;
-    const blob = new Blob([composePlayable()], { type: 'text/html;charset=utf-8' });
+    let playableHtml;
+    try {
+      playableHtml = composePlayable();
+    } catch (error) {
+      showToast(error.message || '导出准备尚未完成');
+      return;
+    }
+    const blob = new Blob([playableHtml], { type: 'text/html;charset=utf-8' });
     const link = document.createElement('a');
     const cleanName = (config.pageTitle || 'puzzle-playable').replace(/[\\/:*?"<>|]/g, '-');
     link.href = URL.createObjectURL(blob);
     link.download = `${cleanName}.html`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    showToast('已导出单文件 HTML，可直接发布');
+    showToast('导出成功：直接发送这个 HTML 即可游玩');
   }
 
   function showToast(message) {
