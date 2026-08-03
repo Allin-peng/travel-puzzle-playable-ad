@@ -1,10 +1,46 @@
 (() => {
   'use strict';
 
-  const ASSETS = {
-    level1: './assets/level-1.jpg',
-    level2: './assets/level-2.jpg'
+  const DEFAULT_CONFIG = {
+    brand: '旅途拼图',
+    pageTitle: '旅途拼图',
+    level1Image: './assets/level-1.jpg',
+    level2Image: './assets/level-2.jpg',
+    level1Size: 2,
+    level2Size: 5,
+    level1Badge: '轻松热身',
+    level1Title: '拼好动物房车',
+    level1Subtitle: '拖动拼图，交换它们的位置',
+    level1Tip: '将图块完整放入格子，拼对后自动合成',
+    level2Badge: '高能挑战',
+    level2Title: '还原旅行风景',
+    level2Subtitle: '25 块拼图，挑战你的观察力',
+    level2Tip: '完整落格后检测，合成大块整体拖动',
+    difficultyKicker: 'LEVEL UP',
+    difficultyTitle: '难度飙升',
+    difficultySubtitle: '真正的挑战，现在开始！',
+    finishBadge: '挑战成功',
+    finishTitle: '太棒了！',
+    finishSubtitle: '两幅拼图都完成啦',
+    replayText: '再玩一次',
+    level1Complete: '完美！第一关完成',
+    primaryColor: '#ff9c3f',
+    secondaryColor: '#4e9c74',
+    transitionDuration: 1100,
+    showFinger: true
   };
+  const CONFIG = Object.assign({}, DEFAULT_CONFIG, window.PUZZLE_CONFIG || {});
+  CONFIG.level1Size = Math.max(2, Math.min(6, Number(CONFIG.level1Size) || 2));
+  CONFIG.level2Size = Math.max(2, Math.min(6, Number(CONFIG.level2Size) || 5));
+  document.title = CONFIG.pageTitle || CONFIG.brand;
+  document.documentElement.style.setProperty('--orange', CONFIG.primaryColor);
+  document.documentElement.style.setProperty('--green', CONFIG.secondaryColor);
+  document.querySelectorAll('[data-config]').forEach(element => {
+    const key = element.dataset.config;
+    if (CONFIG[key] !== undefined) element.textContent = CONFIG[key];
+  });
+
+  const ASSETS = { level1: CONFIG.level1Image, level2: CONFIG.level2Image };
 
   class SwapPuzzle {
     constructor(board, size, image, initialOrder, onComplete, onFirstMove) {
@@ -301,18 +337,20 @@
     return values;
   }
 
-  let firstOrder = shuffledOrder(2);
+  let firstOrder = shuffledOrder(CONFIG.level1Size);
 
   const puzzle1 = new SwapPuzzle(
-    document.getElementById('board1'), 2, ASSETS.level1, firstOrder,
+    document.getElementById('board1'), CONFIG.level1Size, ASSETS.level1, firstOrder,
     completeFirstLevel,
     () => finger.classList.add('hide')
   );
 
   const puzzle2 = new SwapPuzzle(
-    document.getElementById('board2'), 5, ASSETS.level2, shuffledOrder(5),
+    document.getElementById('board2'), CONFIG.level2Size, ASSETS.level2, shuffledOrder(CONFIG.level2Size),
     completeSecondLevel
   );
+
+  if (!CONFIG.showFinger) finger.style.display = 'none';
 
   function completeFirstLevel() {
     toast.classList.remove('show');
@@ -325,7 +363,7 @@
       setTimeout(() => {
         difficulty.classList.remove('show');
         difficulty.setAttribute('aria-hidden', 'true');
-      }, 1100);
+      }, Number(CONFIG.transitionDuration) || 1100);
     }, 420);
   }
 
@@ -342,9 +380,9 @@
     finish.setAttribute('aria-hidden', 'true');
     levelTrack.classList.remove('show-level-two');
     finger.classList.remove('hide');
-    firstOrder = shuffledOrder(2);
+    firstOrder = shuffledOrder(CONFIG.level1Size);
     puzzle1.reset(firstOrder);
-    puzzle2.reset(shuffledOrder(5));
+    puzzle2.reset(shuffledOrder(CONFIG.level2Size));
   });
 
   function launchConfetti() {

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#171b21">
+  <title>拼图试玩广告编辑器</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+  <header class="editor-header">
+    <div>
+      <span class="editor-kicker">PLAYABLE BUILDER</span>
+      <h1>拼图试玩广告编辑器</h1>
+    </div>
+    <div class="header-actions">
+      <button class="ghost-button" id="resetButton" type="button">恢复默认</button>
+      <button class="export-button" id="exportButton" type="button">导出单文件 HTML</button>
+    </div>
+  </header>
+
+  <main class="editor-layout">
+    <aside class="control-panel">
+      <section class="control-section open">
+        <button class="section-title" type="button"><span>01</span> 基础设置 <b>⌃</b></button>
+        <div class="section-content two-columns">
+          <label>试玩名称<input data-field="pageTitle" type="text"></label>
+          <label>品牌名称<input data-field="brand" type="text"></label>
+          <label>主色<input data-field="primaryColor" type="color"></label>
+          <label>辅助色<input data-field="secondaryColor" type="color"></label>
+          <label>难度提示时长
+            <select data-field="transitionDuration">
+              <option value="800">0.8 秒</option><option value="1100">1.1 秒</option><option value="1500">1.5 秒</option>
+            </select>
+          </label>
+          <label class="toggle-label">显示第一关手指引导<input data-field="showFinger" type="checkbox"><span class="toggle"></span></label>
+        </div>
+      </section>
+
+      <section class="control-section open">
+        <button class="section-title" type="button"><span>02</span> 第一关 <b>⌃</b></button>
+        <div class="section-content">
+          <label class="image-picker">
+            <input id="level1File" type="file" accept="image/png,image/jpeg,image/webp">
+            <img id="level1Thumb" alt="第一关图片">
+            <span><b>替换第一关图片</b><small>建议使用竖版 JPG / PNG / WebP</small></span>
+          </label>
+          <div class="two-columns">
+            <label>拼图尺寸<select data-field="level1Size"><option value="2">2 × 2</option><option value="3">3 × 3</option><option value="4">4 × 4</option><option value="5">5 × 5</option><option value="6">6 × 6</option></select></label>
+            <label>关卡标签<input data-field="level1Badge" type="text"></label>
+          </div>
+          <label>主标题<input data-field="level1Title" type="text"></label>
+          <label>副标题<input data-field="level1Subtitle" type="text"></label>
+          <label>底部提示<input data-field="level1Tip" type="text"></label>
+        </div>
+      </section>
+
+      <section class="control-section open">
+        <button class="section-title" type="button"><span>03</span> 第二关 <b>⌃</b></button>
+        <div class="section-content">
+          <label class="image-picker">
+            <input id="level2File" type="file" accept="image/png,image/jpeg,image/webp">
+            <img id="level2Thumb" alt="第二关图片">
+            <span><b>替换第二关图片</b><small>图片会自动切割为拼图</small></span>
+          </label>
+          <div class="two-columns">
+            <label>拼图尺寸<select data-field="level2Size"><option value="2">2 × 2</option><option value="3">3 × 3</option><option value="4">4 × 4</option><option value="5">5 × 5</option><option value="6">6 × 6</option></select></label>
+            <label>关卡标签<input data-field="level2Badge" type="text"></label>
+          </div>
+          <label>主标题<input data-field="level2Title" type="text"></label>
+          <label>副标题<input data-field="level2Subtitle" type="text"></label>
+          <label>底部提示<input data-field="level2Tip" type="text"></label>
+        </div>
+      </section>
+
+      <section class="control-section">
+        <button class="section-title" type="button"><span>04</span> 转场与通关 <b>⌄</b></button>
+        <div class="section-content">
+          <div class="two-columns">
+            <label>转场小字<input data-field="difficultyKicker" type="text"></label>
+            <label>转场标题<input data-field="difficultyTitle" type="text"></label>
+          </div>
+          <label>转场副标题<input data-field="difficultySubtitle" type="text"></label>
+          <div class="two-columns">
+            <label>通关标签<input data-field="finishBadge" type="text"></label>
+            <label>通关标题<input data-field="finishTitle" type="text"></label>
+          </div>
+          <label>通关副标题<input data-field="finishSubtitle" type="text"></label>
+          <div class="two-columns">
+            <label>按钮文字<input data-field="replayText" type="text"></label>
+            <label>第一关完成提示<input data-field="level1Complete" type="text"></label>
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <section class="preview-panel">
+      <div class="preview-toolbar">
+        <div><i></i><span>实时手机预览</span></div>
+        <button id="refreshPreview" type="button">↻ 重新开始</button>
+      </div>
+      <div class="phone-frame">
+        <div class="phone-speaker"></div>
+        <iframe id="previewFrame" title="试玩预览"></iframe>
+      </div>
+      <p class="preview-note">修改设置后自动刷新。可直接在预览中拖动试玩。</p>
+    </section>
+  </main>
+
+  <div class="status-toast" id="editorToast" role="status"></div>
+  <script src="editor.js"></script>
+</body>
+</html>

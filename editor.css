@@ -1,0 +1,42 @@
+:root { color-scheme: dark; --accent: #ff9c3f; --panel: #20252d; --line: #353b45; --text: #f4f6f8; --muted: #9ca5b2; }
+* { box-sizing: border-box; }
+html, body { width: 100%; margin: 0; min-height: 100%; overflow-x: hidden; background: #15191f; color: var(--text); font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+body { min-height: 100vh; background: radial-gradient(circle at 75% 15%, #2a302d 0, transparent 30%), #15191f; }
+button, input, select { font: inherit; }
+.editor-header { position: sticky; z-index: 20; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 18px 30px; background: #171b21ed; border-bottom: 1px solid var(--line); backdrop-filter: blur(14px); }
+.editor-kicker { color: var(--accent); font-size: 10px; font-weight: 900; letter-spacing: .22em; }
+.editor-header h1 { margin: 3px 0 0; font-size: 22px; }
+.header-actions { display: flex; gap: 10px; }
+.header-actions button, .preview-toolbar button { padding: 10px 16px; color: var(--text); border: 1px solid var(--line); border-radius: 10px; background: #252a32; cursor: pointer; }
+.header-actions .export-button { color: #1c1c1c; background: linear-gradient(135deg, #ffb454, #ff8737); border: 0; font-weight: 900; box-shadow: 0 8px 25px #ff913638; }
+.editor-layout { display: grid; grid-template-columns: minmax(420px, 620px) minmax(390px, 1fr); width: 100%; min-width: 0; min-height: calc(100vh - 79px); }
+.control-panel { min-width: 0; padding: 22px 24px 80px 30px; border-right: 1px solid var(--line); }
+.control-section { margin-bottom: 12px; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 15px; }
+.section-title { display: flex; align-items: center; width: 100%; padding: 16px 18px; color: var(--text); background: none; border: 0; cursor: pointer; text-align: left; font-weight: 800; }
+.section-title span { display: grid; place-items: center; width: 27px; height: 27px; margin-right: 10px; color: var(--accent); background: #ff9c3f17; border-radius: 8px; font-size: 10px; }
+.section-title b { margin-left: auto; color: var(--muted); }
+.section-content { display: none; gap: 13px; padding: 0 18px 18px; }
+.control-section.open .section-content { display: grid; }
+.two-columns { grid-template-columns: 1fr 1fr; }
+label { display: grid; gap: 7px; color: #c9cfd7; font-size: 12px; font-weight: 700; }
+input[type="text"], select { width: 100%; min-width: 0; padding: 11px 12px; color: var(--text); background: #171b21; border: 1px solid #3a414c; border-radius: 9px; outline: none; }
+input[type="text"]:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px #ff9c3f15; }
+input[type="color"] { width: 100%; height: 42px; padding: 4px; background: #171b21; border: 1px solid #3a414c; border-radius: 9px; cursor: pointer; }
+.toggle-label { position: relative; display: flex; align-items: center; justify-content: space-between; padding-top: 21px; }
+.toggle-label input { position: absolute; opacity: 0; }
+.toggle { position: relative; width: 42px; height: 24px; background: #464d57; border-radius: 99px; transition: .2s; }
+.toggle::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; background: #fff; border-radius: 50%; transition: .2s; }
+.toggle-label input:checked + .toggle { background: var(--accent); }.toggle-label input:checked + .toggle::after { transform: translateX(18px); }
+.image-picker { display: flex; align-items: center; gap: 13px; min-height: 76px; padding: 10px; background: #171b21; border: 1px dashed #4a525d; border-radius: 11px; cursor: pointer; }
+.image-picker input { display: none; }.image-picker img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; background: #303640; }.image-picker span { display: grid; gap: 4px; }.image-picker small { color: var(--muted); font-weight: 400; }
+.preview-panel { position: sticky; top: 79px; height: calc(100vh - 79px); display: flex; flex-direction: column; align-items: center; padding: 20px 25px; overflow: auto; }
+.preview-toolbar { display: flex; align-items: center; justify-content: space-between; width: min(100%, 520px); margin-bottom: 12px; color: var(--muted); font-size: 12px; }
+.preview-toolbar div { display: flex; align-items: center; gap: 8px; }.preview-toolbar i { width: 8px; height: 8px; background: #63d09a; border-radius: 50%; box-shadow: 0 0 9px #63d09a; }
+.preview-toolbar button { padding: 7px 11px; font-size: 11px; }
+.phone-frame { position: relative; width: min(390px, calc(100vw - 40px)); aspect-ratio: 390 / 844; padding: 9px; background: #050607; border: 2px solid #454b54; border-radius: 38px; box-shadow: 0 35px 70px #0008; }
+.phone-speaker { position: absolute; z-index: 4; left: 50%; top: 13px; width: 70px; height: 19px; transform: translateX(-50%); background: #050607; border-radius: 0 0 14px 14px; }
+.phone-frame iframe { display: block; width: 100%; height: 100%; background: white; border: 0; border-radius: 29px; }
+.preview-note { color: var(--muted); font-size: 11px; }
+.status-toast { position: fixed; z-index: 50; left: 50%; bottom: 28px; padding: 11px 18px; color: #172019; background: #e4f9eb; border-radius: 99px; font-size: 12px; font-weight: 800; opacity: 0; transform: translate(-50%, 10px); pointer-events: none; transition: .25s; }.status-toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 900px) { .editor-layout { grid-template-columns: minmax(0, 1fr); }.preview-panel { position: relative; top: auto; height: auto; min-height: 800px; border-top: 1px solid var(--line); }.control-panel { border-right: 0; padding-left: 20px; padding-right: 20px; }.editor-header { padding: 15px 20px; }.editor-header h1 { font-size: 18px; }.ghost-button { display: none; } }
+@media (max-width: 520px) { .editor-header { width: 100vw; align-items: center; gap: 8px; }.editor-header h1 { white-space: nowrap; font-size: 17px; }.editor-kicker { display: none; }.header-actions { flex: 0 0 auto; min-width: 0; margin-left: auto; }.header-actions .export-button { padding: 9px 9px; font-size: 0; }.header-actions .export-button::after { content: "导出"; font-size: 12px; }.two-columns { grid-template-columns: minmax(0, 1fr); }.toggle-label { padding-top: 0; }.control-panel { width: 100vw; padding: 14px 12px 60px; }.control-section { width: calc(100vw - 24px); }.preview-panel { width: 100vw; padding: 20px 8px; } }

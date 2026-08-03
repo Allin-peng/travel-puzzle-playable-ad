@@ -11,18 +11,18 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app" aria-label="旅途拼图试玩">
+  <div class="app" aria-label="拼图试玩">
     <div class="level-track" id="levelTrack">
       <section class="level-panel level-one" aria-label="第一关">
         <div class="ambient ambient-a"></div>
         <header class="topbar">
-          <div class="brand"><span class="brand-mark">✦</span> 旅途拼图</div>
+          <div class="brand"><span class="brand-mark">✦</span> <span data-config="brand">旅途拼图</span></div>
           <div class="level-pill"><span>关卡</span><b>1 / 2</b></div>
         </header>
         <div class="level-copy">
-          <span class="eyebrow">轻松热身</span>
-          <h1>拼好动物房车</h1>
-          <p>拖动拼图，交换它们的位置</p>
+          <span class="eyebrow" data-config="level1Badge">轻松热身</span>
+          <h1 data-config="level1Title">拼好动物房车</h1>
+          <p data-config="level1Subtitle">拖动拼图，交换它们的位置</p>
         </div>
         <div class="board-shell beginner-shell">
           <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
@@ -35,35 +35,35 @@
             </svg>
           </div>
         </div>
-        <div class="tip"><span class="tip-icon">↔</span> 将图块完整放入格子，拼对后自动合成</div>
+        <div class="tip"><span class="tip-icon">↔</span> <span data-config="level1Tip">将图块完整放入格子，拼对后自动合成</span></div>
       </section>
 
       <section class="level-panel level-two" aria-label="第二关">
         <div class="ambient ambient-b"></div>
         <header class="topbar">
-          <div class="brand"><span class="brand-mark">✦</span> 旅途拼图</div>
+          <div class="brand"><span class="brand-mark">✦</span> <span data-config="brand">旅途拼图</span></div>
           <div class="level-pill hard"><span>关卡</span><b>2 / 2</b></div>
         </header>
         <div class="level-copy">
-          <span class="eyebrow hard-label">高能挑战</span>
-          <h1>还原旅行风景</h1>
-          <p>25 块拼图，挑战你的观察力</p>
+          <span class="eyebrow hard-label" data-config="level2Badge">高能挑战</span>
+          <h1 data-config="level2Title">还原旅行风景</h1>
+          <p data-config="level2Subtitle">25 块拼图，挑战你的观察力</p>
         </div>
         <div class="board-shell expert-shell">
           <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
           <div class="corner corner-bl"></div><div class="corner corner-br"></div>
           <div class="puzzle-board" id="board2"></div>
         </div>
-        <div class="tip"><span class="tip-icon">◎</span> 完整落格后检测，合成大块整体拖动</div>
+        <div class="tip"><span class="tip-icon">◎</span> <span data-config="level2Tip">完整落格后检测，合成大块整体拖动</span></div>
       </section>
     </div>
 
     <div class="difficulty-overlay" id="difficultyOverlay" aria-hidden="true">
       <div class="difficulty-card">
         <div class="up-arrows"><i></i><i></i><i></i></div>
-        <div class="difficulty-kicker">LEVEL UP</div>
-        <h2>难度飙升</h2>
-        <p>真正的挑战，现在开始！</p>
+        <div class="difficulty-kicker" data-config="difficultyKicker">LEVEL UP</div>
+        <h2 data-config="difficultyTitle">难度飙升</h2>
+        <p data-config="difficultySubtitle">真正的挑战，现在开始！</p>
       </div>
     </div>
 
@@ -71,14 +71,13 @@
       <canvas id="confetti"></canvas>
       <div class="finish-card">
         <div class="finish-stars">✦ <span>✦</span> ✦</div>
-        <div class="finish-badge">挑战成功</div>
-        <h2>太棒了！</h2>
-        <p>两幅旅途拼图都完成啦</p>
-        <button type="button" id="replayButton">再玩一次 <span>↻</span></button>
+        <div class="finish-badge" data-config="finishBadge">挑战成功</div>
+        <h2 data-config="finishTitle">太棒了！</h2>
+        <p data-config="finishSubtitle">两幅拼图都完成啦</p>
+        <button type="button" id="replayButton"><span data-config="replayText">再玩一次</span> <span>↻</span></button>
       </div>
     </div>
-
-    <div class="toast" id="toast" role="status">完美！第一关完成</div>
+    <div class="toast" id="toast" role="status" data-config="level1Complete">完美！第一关完成</div>
   </div>
   <script src="game.js"></script>
 </body>
