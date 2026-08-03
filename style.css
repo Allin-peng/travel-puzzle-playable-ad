@@ -111,6 +111,10 @@ button { font: inherit; }
   z-index: 2;
   filter: saturate(1.025);
 }
+.puzzle-piece.grouped::after {
+  border: 0 !important;
+  box-shadow: none !important;
+}
 .puzzle-piece.merge-pop { animation: mergePop .32s ease-out; }
 .expert-shell .puzzle-piece { border-radius: 0; }
 .puzzle-piece:active { cursor: grabbing; }

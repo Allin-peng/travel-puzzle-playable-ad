@@ -18,6 +18,7 @@
       this.moved = false;
       this.locked = false;
       this.groupSignature = '';
+      this.bonds = new Set();
       this.build();
     }
 
@@ -130,6 +131,16 @@
       const oldOrder = this.order.slice();
       const groupSet = new Set(groupIds);
       const targetSet = new Set(targetSlots);
+      const blockedByPermanentGroup = targetSlots.some(slot => {
+        const occupantId = oldOrder[slot];
+        if (groupSet.has(occupantId)) return false;
+        const occupantGroup = this.pieces.filter(piece => piece.dataset.group === this.pieces[occupantId].dataset.group);
+        return occupantGroup.length > 1;
+      });
+      // Never displace only part of a previously merged group. The attempted
+      // move is cancelled so a permanent group can never be torn apart.
+      if (blockedByPermanentGroup) return false;
+
       const vacated = sourceSlots.filter(slot => !targetSet.has(slot)).sort((a, b) => a - b);
       const displaced = targetSlots
         .map(slot => oldOrder[slot])
@@ -140,6 +151,7 @@
       this.renderOrder();
       this.updateGroups(true);
       this.checkComplete();
+      return true;
     }
 
     updateGroups(animateNewMerge) {
@@ -164,20 +176,30 @@
         piece.classList.remove('bond-top', 'bond-right', 'bond-bottom', 'bond-left', 'grouped', 'merge-pop');
       });
 
+      // Discover new correct edge contacts. Bonds are append-only: after two
+      // pieces merge, their connection is permanent for the rest of the level.
       for (let id = 0; id < count; id++) {
         const slot = slots[id];
         const currentRow = Math.floor(slot / this.size);
         if (id % this.size < this.size - 1 && slots[id + 1] === slot + 1 && Math.floor(slots[id + 1] / this.size) === currentRow) {
-          unite(id, id + 1);
-          this.pieces[id].classList.add('bond-right');
-          this.pieces[id + 1].classList.add('bond-left');
+          this.bonds.add(`${id}:${id + 1}`);
         }
         if (id + this.size < count && slots[id + this.size] === slot + this.size) {
-          unite(id, id + this.size);
-          this.pieces[id].classList.add('bond-bottom');
-          this.pieces[id + this.size].classList.add('bond-top');
+          this.bonds.add(`${id}:${id + this.size}`);
         }
       }
+
+      this.bonds.forEach(bond => {
+        const [a, b] = bond.split(':').map(Number);
+        unite(a, b);
+        if (b === a + 1) {
+          this.pieces[a].classList.add('bond-right');
+          this.pieces[b].classList.add('bond-left');
+        } else {
+          this.pieces[a].classList.add('bond-bottom');
+          this.pieces[b].classList.add('bond-top');
+        }
+      });
 
       const groups = new Map();
       for (let id = 0; id < count; id++) {
@@ -213,6 +235,7 @@
       this.locked = false;
       this.moved = false;
       this.groupSignature = '';
+      this.bonds = new Set();
       this.build();
     }
   }
