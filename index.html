@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#fff7e8">
+  <title>旅途拼图</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app" aria-label="旅途拼图试玩">
+    <div class="level-track" id="levelTrack">
+      <section class="level-panel level-one" aria-label="第一关">
+        <div class="ambient ambient-a"></div>
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">✦</span> 旅途拼图</div>
+          <div class="level-pill"><span>关卡</span><b>1 / 2</b></div>
+        </header>
+        <div class="level-copy">
+          <span class="eyebrow">轻松热身</span>
+          <h1>拼好动物房车</h1>
+          <p>拖动拼图，交换它们的位置</p>
+        </div>
+        <div class="board-shell beginner-shell">
+          <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+          <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+          <div class="puzzle-board" id="board1"></div>
+          <div class="finger-guide" id="fingerGuide" aria-hidden="true">
+            <svg viewBox="0 0 64 76" role="img">
+              <path d="M24 39V15c0-5 3-8 7-8s7 3 7 8v18-8c0-4 3-7 7-7s7 3 7 7v20c0 15-9 24-23 24-10 0-16-5-21-14L3 45c-2-4-1-8 3-10 3-2 7-1 10 3l8 10" fill="#fff" stroke="#2f3b34" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M31 0c-10 0-17 7-17 17" fill="none" stroke="#ffb947" stroke-width="4" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="tip"><span class="tip-icon">↔</span> 按住一块，拖到另一块上</div>
+      </section>
+
+      <section class="level-panel level-two" aria-label="第二关">
+        <div class="ambient ambient-b"></div>
+        <header class="topbar">
+          <div class="brand"><span class="brand-mark">✦</span> 旅途拼图</div>
+          <div class="level-pill hard"><span>关卡</span><b>2 / 2</b></div>
+        </header>
+        <div class="level-copy">
+          <span class="eyebrow hard-label">高能挑战</span>
+          <h1>还原旅行风景</h1>
+          <p>25 块拼图，挑战你的观察力</p>
+        </div>
+        <div class="board-shell expert-shell">
+          <div class="corner corner-tl"></div><div class="corner corner-tr"></div>
+          <div class="corner corner-bl"></div><div class="corner corner-br"></div>
+          <div class="puzzle-board" id="board2"></div>
+        </div>
+        <div class="tip"><span class="tip-icon">◎</span> 观察画面细节，交换错位拼图</div>
+      </section>
+    </div>
+
+    <div class="difficulty-overlay" id="difficultyOverlay" aria-hidden="true">
+      <div class="difficulty-card">
+        <div class="up-arrows"><i></i><i></i><i></i></div>
+        <div class="difficulty-kicker">LEVEL UP</div>
+        <h2>难度飙升</h2>
+        <p>真正的挑战，现在开始！</p>
+      </div>
+    </div>
+
+    <div class="finish-overlay" id="finishOverlay" aria-hidden="true">
+      <canvas id="confetti"></canvas>
+      <div class="finish-card">
+        <div class="finish-stars">✦ <span>✦</span> ✦</div>
+        <div class="finish-badge">挑战成功</div>
+        <h2>太棒了！</h2>
+        <p>两幅旅途拼图都完成啦</p>
+        <button type="button" id="replayButton">再玩一次 <span>↻</span></button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast" role="status">完美！第一关完成</div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
