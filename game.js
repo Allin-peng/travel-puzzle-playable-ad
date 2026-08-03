@@ -150,19 +150,35 @@
       const clickedOffsetCol = startCol - sourceRect.left;
       const targetTop = row - clickedOffsetRow;
       const targetLeft = col - clickedOffsetCol;
-      const aligned =
-        targetTop >= 0 && targetLeft >= 0 &&
-        targetTop + sourceRect.height <= this.size && targetLeft + sourceRect.width <= this.size &&
+      const landedOnCell =
+        row >= 0 && row < this.size && col >= 0 && col < this.size &&
         Math.abs(dx - (col - startCol) * cellWidth) <= cellWidth * .46 &&
         Math.abs(dy - (row - startRow) * cellHeight) <= cellHeight * .46;
+      let reorderedBand = false;
 
-      if (aligned) {
+      // Band exchanges use the actual release cell first. The dragged block
+      // may temporarily project beyond the board (e.g. dragging a 2x3 block
+      // onto the last 1x3 row of a 3x3 board), which must not cancel the swap.
+      if (landedOnCell) {
+        const targetSlot = row * this.size + col;
+        const targetId = this.order[targetSlot];
+        if (!groupIds.includes(targetId)) {
+          const targetBandSlots = this.findAdjacentTargetBand(sourceSlots, targetSlot);
+          if (targetBandSlots) reorderedBand = this.exchangeAdjacentRectangles(sourceSlots, targetBandSlots);
+        }
+      }
+
+      const aligned = landedOnCell &&
+        targetTop >= 0 && targetLeft >= 0 &&
+        targetTop + sourceRect.height <= this.size && targetLeft + sourceRect.width <= this.size;
+
+      if (!reorderedBand && aligned) {
         const targetSlot = row * this.size + col;
         const targetId = this.order[targetSlot];
         const targetGroupIds = this.groups.get(this.groupById[targetId]);
         const targetGroupSlots = targetGroupIds.map(id => this.order.indexOf(id));
-        const reorderedBand = !groupIds.includes(targetId) && this.exchangeAdjacentRectangles(sourceSlots, targetGroupSlots);
-        if (!reorderedBand) {
+        const reorderedGroup = !groupIds.includes(targetId) && this.exchangeAdjacentRectangles(sourceSlots, targetGroupSlots);
+        if (!reorderedGroup) {
           const targetSlots = this.slotsForRectangle(targetTop, targetLeft, sourceRect.height, sourceRect.width);
           if (!targetSlots.every(slot => sourceSlots.includes(slot))) this.exchangeRectangles(sourceSlots, targetSlots);
         }
@@ -187,6 +203,47 @@
         for (let col = 0; col < width; col++) slots.push((top + row) * this.size + left + col);
       }
       return slots;
+    }
+
+    findAdjacentTargetBand(sourceSlots, targetSlot) {
+      const sourceRect = this.rectangleForSlots(sourceSlots);
+      if (sourceSlots.length !== sourceRect.height * sourceRect.width) return null;
+      const targetRow = Math.floor(targetSlot / this.size);
+      const targetCol = targetSlot % this.size;
+      const candidates = [];
+      const addCandidate = (top, left, height, width) => {
+        if (top < 0 || left < 0 || top + height > this.size || left + width > this.size) return;
+        if (targetRow < top || targetRow >= top + height || targetCol < left || targetCol >= left + width) return;
+        const slots = this.slotsForRectangle(top, left, height, width);
+        const slotSet = new Set(slots);
+        const roots = new Set(slots.map(slot => this.groupById[this.order[slot]]));
+        const containsCompleteGroups = [...roots].every(root =>
+          this.groups.get(root).every(id => slotSet.has(this.order.indexOf(id)))
+        );
+        if (containsCompleteGroups) candidates.push(slots);
+      };
+
+      // Search a complete strip sharing the full top/bottom edge.
+      if (targetRow >= sourceRect.top + sourceRect.height) {
+        for (let height = 1; sourceRect.top + sourceRect.height + height <= this.size; height++)
+          addCandidate(sourceRect.top + sourceRect.height, sourceRect.left, height, sourceRect.width);
+      } else if (targetRow < sourceRect.top) {
+        for (let height = 1; sourceRect.top - height >= 0; height++)
+          addCandidate(sourceRect.top - height, sourceRect.left, height, sourceRect.width);
+      }
+
+      // Search a complete strip sharing the full left/right edge.
+      if (targetCol >= sourceRect.left + sourceRect.width) {
+        for (let width = 1; sourceRect.left + sourceRect.width + width <= this.size; width++)
+          addCandidate(sourceRect.top, sourceRect.left + sourceRect.width, sourceRect.height, width);
+      } else if (targetCol < sourceRect.left) {
+        for (let width = 1; sourceRect.left - width >= 0; width++)
+          addCandidate(sourceRect.top, sourceRect.left - width, sourceRect.height, width);
+      }
+
+      // Prefer the smallest complete band containing the release point.
+      candidates.sort((a, b) => a.length - b.length);
+      return candidates[0] || null;
     }
 
     exchangeAdjacentRectangles(sourceSlots, targetSlots) {
