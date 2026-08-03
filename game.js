@@ -157,8 +157,15 @@
         Math.abs(dy - (row - startRow) * cellHeight) <= cellHeight * .46;
 
       if (aligned) {
-        const targetSlots = this.slotsForRectangle(targetTop, targetLeft, sourceRect.height, sourceRect.width);
-        if (!targetSlots.every(slot => sourceSlots.includes(slot))) this.exchangeRectangles(sourceSlots, targetSlots);
+        const targetSlot = row * this.size + col;
+        const targetId = this.order[targetSlot];
+        const targetGroupIds = this.groups.get(this.groupById[targetId]);
+        const targetGroupSlots = targetGroupIds.map(id => this.order.indexOf(id));
+        const reorderedBand = !groupIds.includes(targetId) && this.exchangeAdjacentRectangles(sourceSlots, targetGroupSlots);
+        if (!reorderedBand) {
+          const targetSlots = this.slotsForRectangle(targetTop, targetLeft, sourceRect.height, sourceRect.width);
+          if (!targetSlots.every(slot => sourceSlots.includes(slot))) this.exchangeRectangles(sourceSlots, targetSlots);
+        }
       }
       this.drag = null;
       this.draw();
@@ -180,6 +187,47 @@
         for (let col = 0; col < width; col++) slots.push((top + row) * this.size + left + col);
       }
       return slots;
+    }
+
+    exchangeAdjacentRectangles(sourceSlots, targetSlots) {
+      const sourceRect = this.rectangleForSlots(sourceSlots);
+      const targetRect = this.rectangleForSlots(targetSlots);
+      if (sourceSlots.length !== sourceRect.height * sourceRect.width || targetSlots.length !== targetRect.height * targetRect.width) return false;
+      const oldOrder = this.order.slice();
+
+      const horizontal =
+        sourceRect.top === targetRect.top && sourceRect.height === targetRect.height &&
+        (sourceRect.left + sourceRect.width === targetRect.left || targetRect.left + targetRect.width === sourceRect.left);
+      const vertical =
+        sourceRect.left === targetRect.left && sourceRect.width === targetRect.width &&
+        (sourceRect.top + sourceRect.height === targetRect.top || targetRect.top + targetRect.height === sourceRect.top);
+      if (!horizontal && !vertical) return false;
+
+      const copyRectangle = (fromRect, toTop, toLeft) => {
+        for (let row = 0; row < fromRect.height; row++) {
+          for (let col = 0; col < fromRect.width; col++) {
+            const fromSlot = (fromRect.top + row) * this.size + fromRect.left + col;
+            const toSlot = (toTop + row) * this.size + toLeft + col;
+            this.order[toSlot] = oldOrder[fromSlot];
+          }
+        }
+      };
+
+      if (horizontal) {
+        const leftRect = sourceRect.left < targetRect.left ? sourceRect : targetRect;
+        const rightRect = leftRect === sourceRect ? targetRect : sourceRect;
+        copyRectangle(rightRect, leftRect.top, leftRect.left);
+        copyRectangle(leftRect, leftRect.top, leftRect.left + rightRect.width);
+      } else {
+        const topRect = sourceRect.top < targetRect.top ? sourceRect : targetRect;
+        const bottomRect = topRect === sourceRect ? targetRect : sourceRect;
+        copyRectangle(bottomRect, topRect.top, topRect.left);
+        copyRectangle(topRect, topRect.top + bottomRect.height, topRect.left);
+      }
+
+      this.updateGroups(true);
+      this.checkComplete();
+      return true;
     }
 
     exchangeRectangles(sourceSlots, targetSlots) {
