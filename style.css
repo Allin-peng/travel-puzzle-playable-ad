@@ -102,8 +102,14 @@ button { font: inherit; }
   box-shadow: 0 13px 30px #1f27294c, inset 0 0 0 2px #fff;
   transition: none;
 }
-.puzzle-board.is-complete .puzzle-piece { box-shadow: none; }
-.puzzle-board.is-complete { gap: 0; transition: gap .35s; }
+.puzzle-board.is-complete .puzzle-piece {
+  border-radius: 0;
+  box-shadow: none;
+}
+.puzzle-board.is-complete {
+  gap: 0 !important;
+  transition: gap .22s;
+}
 .corner { position: absolute; z-index: 30; width: 25px; height: 25px; pointer-events: none; }
 .corner::before, .corner::after { content: ""; position: absolute; background: var(--orange); border-radius: 4px; }
 .expert-shell .corner::before, .expert-shell .corner::after { background: var(--green); }
