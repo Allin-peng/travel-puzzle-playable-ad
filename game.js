@@ -17,7 +17,6 @@
       this.drag = null;
       this.moved = false;
       this.locked = false;
-      this.groupSignature = '';
       this.bonds = new Set();
       this.build();
     }
@@ -25,97 +24,94 @@
     build() {
       this.board.innerHTML = '';
       this.board.classList.remove('is-complete');
-      this.board.style.gridTemplateColumns = `repeat(${this.size}, 1fr)`;
-      this.pieces = [];
-      const count = this.size * this.size;
-      for (let id = 0; id < count; id++) {
-        const piece = document.createElement('div');
-        const col = id % this.size;
-        const row = Math.floor(id / this.size);
-        piece.className = 'puzzle-piece';
-        piece.dataset.id = String(id);
-        piece.setAttribute('role', 'button');
-        piece.setAttribute('aria-label', `拼图块 ${id + 1}`);
-        piece.style.backgroundImage = `url("${this.image}")`;
-        piece.style.backgroundSize = `${this.size * 100}% ${this.size * 100}%`;
-        piece.style.backgroundPosition = `${this.size === 1 ? 0 : col / (this.size - 1) * 100}% ${this.size === 1 ? 0 : row / (this.size - 1) * 100}%`;
-        piece.addEventListener('pointerdown', event => this.pointerDown(event, piece));
-        this.board.appendChild(piece);
-        this.pieces.push(piece);
-      }
-      this.renderOrder();
+      this.canvas = document.createElement('canvas');
+      this.canvas.className = 'puzzle-canvas';
+      this.canvas.setAttribute('aria-label', `${this.size}×${this.size} 拼图区域`);
+      this.board.appendChild(this.canvas);
+      this.ctx = this.canvas.getContext('2d', { alpha: false });
+      this.canvas.addEventListener('pointerdown', event => this.pointerDown(event));
+      this.imageElement = new Image();
+      this.imageElement.decoding = 'async';
+      this.imageElement.onload = () => this.resizeCanvas();
+      this.imageElement.src = this.image;
+      this.resizeObserver?.disconnect();
+      this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+      this.resizeObserver.observe(this.board);
       this.updateGroups(false);
     }
 
-    renderOrder() {
-      this.order.forEach((id, slot) => { this.pieces[id].style.order = slot; });
+    resizeCanvas() {
+      const rect = this.board.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      const ratio = Math.min(window.devicePixelRatio || 1, 3);
+      this.pixelRatio = ratio;
+      this.canvas.width = Math.round(rect.width * ratio);
+      this.canvas.height = Math.round(rect.height * ratio);
+      this.canvas.style.width = `${rect.width}px`;
+      this.canvas.style.height = `${rect.height}px`;
+      this.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      this.draw();
     }
 
-    pointerDown(event, piece) {
+    pointerDown(event) {
       if (this.locked || event.button > 0) return;
       event.preventDefault();
+      const rect = this.canvas.getBoundingClientRect();
+      const col = Math.min(this.size - 1, Math.max(0, Math.floor((event.clientX - rect.left) / rect.width * this.size)));
+      const row = Math.min(this.size - 1, Math.max(0, Math.floor((event.clientY - rect.top) / rect.height * this.size)));
+      const startSlot = row * this.size + col;
+      const id = this.order[startSlot];
       if (!this.moved) {
         this.moved = true;
         if (this.onFirstMove) this.onFirstMove();
       }
-      const startSlot = this.order.indexOf(Number(piece.dataset.id));
-      const groupId = piece.dataset.group;
-      const groupPieces = this.pieces.filter(item => item.dataset.group === groupId);
-      const groupIds = groupPieces.map(item => Number(item.dataset.id));
+      const groupId = this.groupById[id];
+      const groupIds = this.groups.get(groupId).slice();
       const sourceSlots = groupIds.map(id => this.order.indexOf(id));
-      this.drag = { piece, groupPieces, groupIds, sourceSlots, startSlot, x: event.clientX, y: event.clientY, pointerId: event.pointerId };
-      groupPieces.forEach(item => item.classList.add('dragging-group'));
-      piece.setPointerCapture(event.pointerId);
-      piece.addEventListener('pointermove', this.moveHandler = e => this.pointerMove(e));
-      piece.addEventListener('pointerup', this.upHandler = e => this.pointerUp(e));
-      piece.addEventListener('pointercancel', this.upHandler);
+      this.drag = { id, groupIds, sourceSlots, startSlot, x: event.clientX, y: event.clientY, dx: 0, dy: 0, pointerId: event.pointerId };
+      this.canvas.setPointerCapture(event.pointerId);
+      this.canvas.addEventListener('pointermove', this.moveHandler = e => this.pointerMove(e));
+      this.canvas.addEventListener('pointerup', this.upHandler = e => this.pointerUp(e));
+      this.canvas.addEventListener('pointercancel', this.upHandler);
     }
 
     pointerMove(event) {
       if (!this.drag || event.pointerId !== this.drag.pointerId) return;
       const dx = event.clientX - this.drag.x;
       const dy = event.clientY - this.drag.y;
-      const pixelDx = Math.round(dx);
-      const pixelDy = Math.round(dy);
-      this.drag.groupPieces.forEach(item => {
-        item.style.transform = `translate(${pixelDx}px, ${pixelDy}px)`;
-      });
+      this.drag.dx = Math.round(dx * this.pixelRatio) / this.pixelRatio;
+      this.drag.dy = Math.round(dy * this.pixelRatio) / this.pixelRatio;
+      this.draw();
     }
 
     pointerUp(event) {
       if (!this.drag || event.pointerId !== this.drag.pointerId) return;
-      const { piece, groupPieces, groupIds, sourceSlots, startSlot } = this.drag;
-      const droppedRect = piece.getBoundingClientRect();
-      groupPieces.forEach(item => {
-        item.classList.remove('dragging-group');
-        item.style.transform = '';
-      });
-      piece.removeEventListener('pointermove', this.moveHandler);
-      piece.removeEventListener('pointerup', this.upHandler);
-      piece.removeEventListener('pointercancel', this.upHandler);
+      const { groupIds, sourceSlots, startSlot, dx, dy } = this.drag;
+      this.canvas.removeEventListener('pointermove', this.moveHandler);
+      this.canvas.removeEventListener('pointerup', this.upHandler);
+      this.canvas.removeEventListener('pointercancel', this.upHandler);
 
       const rect = this.board.getBoundingClientRect();
       const cellWidth = rect.width / this.size;
       const cellHeight = rect.height / this.size;
-      const col = Math.round((droppedRect.left - rect.left) / cellWidth);
-      const row = Math.round((droppedRect.top - rect.top) / cellHeight);
-      const targetLeft = rect.left + col * cellWidth;
-      const targetTop = rect.top + row * cellHeight;
+      const startCol = startSlot % this.size;
+      const startRow = Math.floor(startSlot / this.size);
+      const col = Math.round(startCol + dx / cellWidth);
+      const row = Math.round(startRow + dy / cellHeight);
       const aligned =
         row >= 0 && row < this.size && col >= 0 && col < this.size &&
-        Math.abs(droppedRect.left - targetLeft) <= cellWidth * .16 &&
-        Math.abs(droppedRect.top - targetTop) <= cellHeight * .16 &&
-        Math.abs(droppedRect.right - (targetLeft + cellWidth)) <= cellWidth * .16 &&
-        Math.abs(droppedRect.bottom - (targetTop + cellHeight)) <= cellHeight * .16;
+        Math.abs(dx - (col - startCol) * cellWidth) <= cellWidth * .16 &&
+        Math.abs(dy - (row - startRow) * cellHeight) <= cellHeight * .16;
 
       if (aligned) {
         const targetSlot = row * this.size + col;
         if (targetSlot !== startSlot) {
-          const moveSlots = this.translatedSlots(sourceSlots, row - Math.floor(startSlot / this.size), col - startSlot % this.size);
+          const moveSlots = this.translatedSlots(sourceSlots, row - startRow, col - startCol);
           if (moveSlots) this.moveGroup(groupIds, sourceSlots, moveSlots);
         }
       }
       this.drag = null;
+      this.draw();
     }
 
     translatedSlots(sourceSlots, deltaRow, deltaCol) {
@@ -136,8 +132,7 @@
       const blockedByPermanentGroup = targetSlots.some(slot => {
         const occupantId = oldOrder[slot];
         if (groupSet.has(occupantId)) return false;
-        const occupantGroup = this.pieces.filter(piece => piece.dataset.group === this.pieces[occupantId].dataset.group);
-        return occupantGroup.length > 1;
+        return this.groups.get(this.groupById[occupantId]).length > 1;
       });
       // Never displace only part of a previously merged group. The attempted
       // move is cancelled so a permanent group can never be torn apart.
@@ -150,7 +145,6 @@
 
       sourceSlots.forEach((slot, index) => { this.order[targetSlots[index]] = groupIds[index]; });
       vacated.forEach((slot, index) => { this.order[slot] = displaced[index]; });
-      this.renderOrder();
       this.updateGroups(true);
       this.checkComplete();
       return true;
@@ -174,10 +168,6 @@
       const slots = Array(count);
       this.order.forEach((id, slot) => { slots[id] = slot; });
 
-      this.pieces.forEach(piece => {
-        piece.classList.remove('bond-top', 'bond-right', 'bond-bottom', 'bond-left', 'grouped', 'merge-pop');
-      });
-
       // Discover new correct edge contacts. Bonds are append-only: after two
       // pieces merge, their connection is permanent for the rest of the level.
       for (let id = 0; id < count; id++) {
@@ -194,34 +184,73 @@
       this.bonds.forEach(bond => {
         const [a, b] = bond.split(':').map(Number);
         unite(a, b);
-        if (b === a + 1) {
-          this.pieces[a].classList.add('bond-right');
-          this.pieces[b].classList.add('bond-left');
-        } else {
-          this.pieces[a].classList.add('bond-bottom');
-          this.pieces[b].classList.add('bond-top');
-        }
       });
 
       const groups = new Map();
+      this.groupById = Array(count);
       for (let id = 0; id < count; id++) {
         const root = find(id);
+        this.groupById[id] = root;
         if (!groups.has(root)) groups.set(root, []);
         groups.get(root).push(id);
       }
-      const signature = [...groups.values()].filter(group => group.length > 1).map(group => group.join('-')).sort().join('|');
-      groups.forEach((ids, root) => {
+      this.groups = groups;
+      if (this.ctx) this.draw();
+    }
+
+    hasBond(a, b) {
+      return this.bonds.has(`${Math.min(a, b)}:${Math.max(a, b)}`);
+    }
+
+    draw() {
+      if (!this.ctx || !this.canvas.width || !this.imageElement?.complete || !this.imageElement.naturalWidth) return;
+      const width = this.canvas.width / this.pixelRatio;
+      const height = this.canvas.height / this.pixelRatio;
+      const cellWidth = width / this.size;
+      const cellHeight = height / this.size;
+      const dragged = new Set(this.drag?.groupIds || []);
+      this.ctx.fillStyle = '#d9dfd8';
+      this.ctx.fillRect(0, 0, width, height);
+
+      const drawIds = (ids, offsetX = 0, offsetY = 0) => {
         ids.forEach(id => {
-          this.pieces[id].dataset.group = String(root);
-          if (ids.length > 1) this.pieces[id].classList.add('grouped');
+          const slot = this.order.indexOf(id);
+          const x = (slot % this.size) * cellWidth + offsetX;
+          const y = Math.floor(slot / this.size) * cellHeight + offsetY;
+          const sourceWidth = this.imageElement.naturalWidth / this.size;
+          const sourceHeight = this.imageElement.naturalHeight / this.size;
+          const sourceX = (id % this.size) * sourceWidth;
+          const sourceY = Math.floor(id / this.size) * sourceHeight;
+          const overlap = .45;
+          const left = id % this.size > 0 && this.hasBond(id - 1, id) ? overlap : 0;
+          const right = id % this.size < this.size - 1 && this.hasBond(id, id + 1) ? overlap : 0;
+          const top = id >= this.size && this.hasBond(id - this.size, id) ? overlap : 0;
+          const bottom = id + this.size < this.size * this.size && this.hasBond(id, id + this.size) ? overlap : 0;
+          this.ctx.drawImage(
+            this.imageElement,
+            sourceX - left * sourceWidth / cellWidth, sourceY - top * sourceHeight / cellHeight,
+            sourceWidth + (left + right) * sourceWidth / cellWidth, sourceHeight + (top + bottom) * sourceHeight / cellHeight,
+            x - left, y - top, cellWidth + left + right, cellHeight + top + bottom
+          );
         });
-      });
-      if (animateNewMerge && signature !== this.groupSignature) {
-        [...groups.values()].filter(group => group.length > 1).forEach(ids => {
-          ids.forEach(id => this.pieces[id].classList.add('merge-pop'));
+
+        this.ctx.strokeStyle = 'rgba(255,255,255,.86)';
+        this.ctx.lineWidth = this.size === 2 ? 2 : 1;
+        this.ctx.beginPath();
+        ids.forEach(id => {
+          const slot = this.order.indexOf(id);
+          const x = (slot % this.size) * cellWidth + offsetX;
+          const y = Math.floor(slot / this.size) * cellHeight + offsetY;
+          if (!(id >= this.size && this.hasBond(id - this.size, id))) { this.ctx.moveTo(x, y); this.ctx.lineTo(x + cellWidth, y); }
+          if (!(id % this.size < this.size - 1 && this.hasBond(id, id + 1))) { this.ctx.moveTo(x + cellWidth, y); this.ctx.lineTo(x + cellWidth, y + cellHeight); }
+          if (!(id + this.size < this.size * this.size && this.hasBond(id, id + this.size))) { this.ctx.moveTo(x, y + cellHeight); this.ctx.lineTo(x + cellWidth, y + cellHeight); }
+          if (!(id % this.size > 0 && this.hasBond(id - 1, id))) { this.ctx.moveTo(x, y); this.ctx.lineTo(x, y + cellHeight); }
         });
-      }
-      this.groupSignature = signature;
+        this.ctx.stroke();
+      };
+
+      drawIds(this.order.filter(id => !dragged.has(id)));
+      if (this.drag) drawIds(this.drag.groupIds, this.drag.dx, this.drag.dy);
     }
 
     checkComplete() {
@@ -236,7 +265,6 @@
       this.order = order.slice();
       this.locked = false;
       this.moved = false;
-      this.groupSignature = '';
       this.bonds = new Set();
       this.build();
     }
