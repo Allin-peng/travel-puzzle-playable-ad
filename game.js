@@ -241,8 +241,44 @@
           addCandidate(sourceRect.top, sourceRect.left - width, sourceRect.height, width);
       }
 
-      // Prefer the smallest complete band containing the release point.
-      candidates.sort((a, b) => a.length - b.length);
+      // A band made of singles has no group boundary to reveal its intended
+      // size. Simulate every legal band swap and select the one producing the
+      // most correct image adjacencies. Prefer the larger complete band on a
+      // tie, so spaces such as 2x3 are not mistaken for a 2x1 exchange.
+      const adjacencyScore = targetSlots => {
+        const sourceRect = this.rectangleForSlots(sourceSlots);
+        const targetRect = this.rectangleForSlots(targetSlots);
+        const next = this.order.slice();
+        const copy = (fromRect, toTop, toLeft) => {
+          for (let row = 0; row < fromRect.height; row++) {
+            for (let col = 0; col < fromRect.width; col++) {
+              next[(toTop + row) * this.size + toLeft + col] =
+                this.order[(fromRect.top + row) * this.size + fromRect.left + col];
+            }
+          }
+        };
+        if (sourceRect.top === targetRect.top && sourceRect.height === targetRect.height) {
+          const leftRect = sourceRect.left < targetRect.left ? sourceRect : targetRect;
+          const rightRect = leftRect === sourceRect ? targetRect : sourceRect;
+          copy(rightRect, leftRect.top, leftRect.left);
+          copy(leftRect, leftRect.top, leftRect.left + rightRect.width);
+        } else {
+          const topRect = sourceRect.top < targetRect.top ? sourceRect : targetRect;
+          const bottomRect = topRect === sourceRect ? targetRect : sourceRect;
+          copy(bottomRect, topRect.top, topRect.left);
+          copy(topRect, topRect.top + bottomRect.height, topRect.left);
+        }
+        const positions = Array(next.length);
+        next.forEach((id, slot) => { positions[id] = slot; });
+        let score = 0;
+        for (let id = 0; id < next.length; id++) {
+          const slot = positions[id];
+          if (id % this.size < this.size - 1 && positions[id + 1] === slot + 1 && Math.floor(positions[id + 1] / this.size) === Math.floor(slot / this.size)) score++;
+          if (id + this.size < next.length && positions[id + this.size] === slot + this.size) score++;
+        }
+        return score;
+      };
+      candidates.sort((a, b) => adjacencyScore(b) - adjacencyScore(a) || b.length - a.length);
       return candidates[0] || null;
     }
 
