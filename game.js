@@ -70,9 +70,20 @@
       this.imageElement.decoding = 'async';
       this.imageElement.onload = () => this.resizeCanvas();
       this.imageElement.src = this.image;
-      this.resizeObserver?.disconnect();
-      this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
-      this.resizeObserver.observe(this.board);
+      if (this.resizeObserver) this.resizeObserver.disconnect();
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver(() => this.resizeCanvas());
+        this.resizeObserver.observe(this.board);
+      } else {
+        // Android 6/7 and older System WebView versions do not provide
+        // ResizeObserver. Keep the canvas responsive with the resize event.
+        if (!this.legacyResizeHandler) {
+          this.legacyResizeHandler = () => this.resizeCanvas();
+          window.addEventListener('resize', this.legacyResizeHandler);
+          window.addEventListener('orientationchange', this.legacyResizeHandler);
+        }
+        setTimeout(() => this.resizeCanvas(), 0);
+      }
       this.updateGroups(false);
     }
 
