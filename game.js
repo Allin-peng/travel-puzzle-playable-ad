@@ -17,6 +17,7 @@
       this.drag = null;
       this.moved = false;
       this.locked = false;
+      this.groupSignature = '';
       this.build();
     }
 
@@ -42,6 +43,7 @@
         this.pieces.push(piece);
       }
       this.renderOrder();
+      this.updateGroups(false);
     }
 
     renderOrder() {
@@ -56,8 +58,12 @@
         if (this.onFirstMove) this.onFirstMove();
       }
       const startSlot = this.order.indexOf(Number(piece.dataset.id));
-      this.drag = { piece, startSlot, x: event.clientX, y: event.clientY, pointerId: event.pointerId };
-      piece.classList.add('dragging');
+      const groupId = piece.dataset.group;
+      const groupPieces = this.pieces.filter(item => item.dataset.group === groupId);
+      const groupIds = groupPieces.map(item => Number(item.dataset.id));
+      const sourceSlots = groupIds.map(id => this.order.indexOf(id));
+      this.drag = { piece, groupPieces, groupIds, sourceSlots, startSlot, x: event.clientX, y: event.clientY, pointerId: event.pointerId };
+      groupPieces.forEach(item => item.classList.add('dragging-group'));
       piece.setPointerCapture(event.pointerId);
       piece.addEventListener('pointermove', this.moveHandler = e => this.pointerMove(e));
       piece.addEventListener('pointerup', this.upHandler = e => this.pointerUp(e));
@@ -68,14 +74,18 @@
       if (!this.drag || event.pointerId !== this.drag.pointerId) return;
       const dx = event.clientX - this.drag.x;
       const dy = event.clientY - this.drag.y;
-      this.drag.piece.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.04)`;
+      this.drag.groupPieces.forEach(item => {
+        item.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+      });
     }
 
     pointerUp(event) {
       if (!this.drag || event.pointerId !== this.drag.pointerId) return;
-      const { piece, startSlot } = this.drag;
-      piece.classList.remove('dragging');
-      piece.style.transform = '';
+      const { piece, groupPieces, groupIds, sourceSlots, startSlot } = this.drag;
+      groupPieces.forEach(item => {
+        item.classList.remove('dragging-group');
+        item.style.transform = '';
+      });
       piece.removeEventListener('pointermove', this.moveHandler);
       piece.removeEventListener('pointerup', this.upHandler);
       piece.removeEventListener('pointercancel', this.upHandler);
@@ -87,12 +97,102 @@
         const row = Math.min(this.size - 1, Math.max(0, Math.floor((event.clientY - rect.top) / rect.height * this.size)));
         const targetSlot = row * this.size + col;
         if (targetSlot !== startSlot) {
-          [this.order[startSlot], this.order[targetSlot]] = [this.order[targetSlot], this.order[startSlot]];
-          this.renderOrder();
-          this.checkComplete();
+          const startRow = Math.floor(startSlot / this.size);
+          const startCol = startSlot % this.size;
+          const deltaRow = row - startRow;
+          const deltaCol = col - startCol;
+          const targetSlots = sourceSlots.map(slot => {
+            const sourceRow = Math.floor(slot / this.size);
+            const sourceCol = slot % this.size;
+            const nextRow = sourceRow + deltaRow;
+            const nextCol = sourceCol + deltaCol;
+            return nextRow * this.size + nextCol;
+          });
+          const valid = sourceSlots.every((slot, index) => {
+            const sourceRow = Math.floor(slot / this.size);
+            const sourceCol = slot % this.size;
+            const nextRow = sourceRow + deltaRow;
+            const nextCol = sourceCol + deltaCol;
+            return nextRow >= 0 && nextRow < this.size && nextCol >= 0 && nextCol < this.size && targetSlots[index] >= 0;
+          });
+          if (valid) this.moveGroup(groupIds, sourceSlots, targetSlots);
         }
       }
       this.drag = null;
+    }
+
+    moveGroup(groupIds, sourceSlots, targetSlots) {
+      const oldOrder = this.order.slice();
+      const groupSet = new Set(groupIds);
+      const targetSet = new Set(targetSlots);
+      const vacated = sourceSlots.filter(slot => !targetSet.has(slot)).sort((a, b) => a - b);
+      const displaced = targetSlots
+        .map(slot => oldOrder[slot])
+        .filter(id => !groupSet.has(id));
+
+      sourceSlots.forEach((slot, index) => { this.order[targetSlots[index]] = groupIds[index]; });
+      vacated.forEach((slot, index) => { this.order[slot] = displaced[index]; });
+      this.renderOrder();
+      this.updateGroups(true);
+      this.checkComplete();
+    }
+
+    updateGroups(animateNewMerge) {
+      const count = this.size * this.size;
+      const parent = Array.from({ length: count }, (_, index) => index);
+      const find = value => {
+        while (parent[value] !== value) {
+          parent[value] = parent[parent[value]];
+          value = parent[value];
+        }
+        return value;
+      };
+      const unite = (a, b) => {
+        const rootA = find(a);
+        const rootB = find(b);
+        if (rootA !== rootB) parent[rootB] = rootA;
+      };
+      const slots = Array(count);
+      this.order.forEach((id, slot) => { slots[id] = slot; });
+
+      this.pieces.forEach(piece => {
+        piece.classList.remove('bond-top', 'bond-right', 'bond-bottom', 'bond-left', 'grouped', 'merge-pop');
+      });
+
+      for (let id = 0; id < count; id++) {
+        const slot = slots[id];
+        const currentRow = Math.floor(slot / this.size);
+        if (id % this.size < this.size - 1 && slots[id + 1] === slot + 1 && Math.floor(slots[id + 1] / this.size) === currentRow) {
+          unite(id, id + 1);
+          this.pieces[id].classList.add('bond-right');
+          this.pieces[id + 1].classList.add('bond-left');
+        }
+        if (id + this.size < count && slots[id + this.size] === slot + this.size) {
+          unite(id, id + this.size);
+          this.pieces[id].classList.add('bond-bottom');
+          this.pieces[id + this.size].classList.add('bond-top');
+        }
+      }
+
+      const groups = new Map();
+      for (let id = 0; id < count; id++) {
+        const root = find(id);
+        if (!groups.has(root)) groups.set(root, []);
+        groups.get(root).push(id);
+      }
+      const signature = [...groups.values()].filter(group => group.length > 1).map(group => group.join('-')).sort().join('|');
+      groups.forEach((ids, root) => {
+        ids.forEach(id => {
+          this.pieces[id].dataset.group = String(root);
+          if (ids.length > 1) this.pieces[id].classList.add('grouped');
+        });
+      });
+      if (animateNewMerge && signature !== this.groupSignature) {
+        [...groups.values()].filter(group => group.length > 1).forEach(ids => {
+          ids.forEach(id => this.pieces[id].classList.add('merge-pop'));
+        });
+      }
+      this.groupSignature = signature;
     }
 
     checkComplete() {
@@ -107,6 +207,7 @@
       this.order = order.slice();
       this.locked = false;
       this.moved = false;
+      this.groupSignature = '';
       this.build();
     }
   }

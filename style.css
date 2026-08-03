@@ -76,36 +76,53 @@ button { font: inherit; }
   display: grid;
   width: 100%;
   height: 100%;
-  gap: 4px;
+  gap: 0;
   overflow: hidden;
   border-radius: 15px;
   background: #e8ddc9;
   touch-action: none;
 }
-.expert-shell .puzzle-board { gap: 2px; background: #c4ddd8; }
+.expert-shell .puzzle-board { gap: 0; background: #c4ddd8; }
 .puzzle-piece {
   position: relative;
   min-width: 0;
   min-height: 0;
-  border-radius: 5px;
+  border-radius: 0;
   background-repeat: no-repeat;
   cursor: grab;
-  box-shadow: inset 0 0 0 1px #fff8;
-  transition: filter .18s, box-shadow .18s;
+  transition: filter .18s;
   will-change: transform;
 }
-.expert-shell .puzzle-piece { border-radius: 2px; box-shadow: inset 0 0 0 .5px #fff7; }
+.puzzle-piece::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 2px solid rgba(255, 255, 255, .88);
+  pointer-events: none;
+}
+.expert-shell .puzzle-piece::after { border-width: 1px; border-color: rgba(255, 255, 255, .78); }
+.puzzle-piece.bond-top::after { border-top-width: 0; }
+.puzzle-piece.bond-right::after { border-right-width: 0; }
+.puzzle-piece.bond-bottom::after { border-bottom-width: 0; }
+.puzzle-piece.bond-left::after { border-left-width: 0; }
+.puzzle-piece.grouped { filter: saturate(1.025); }
+.puzzle-piece.merge-pop { animation: mergePop .32s ease-out; }
+.expert-shell .puzzle-piece { border-radius: 0; }
 .puzzle-piece:active { cursor: grabbing; }
-.puzzle-piece.dragging {
+.puzzle-piece.dragging-group {
   z-index: 20;
   filter: brightness(1.08) saturate(1.06);
-  box-shadow: 0 13px 30px #1f27294c, inset 0 0 0 2px #fff;
+  filter: drop-shadow(0 8px 7px rgba(31, 39, 41, .28)) brightness(1.06) saturate(1.06);
   transition: none;
 }
+.puzzle-piece.dragging-group::after { border-color: rgba(255, 255, 255, .96); }
+@keyframes mergePop { 0% { filter: brightness(1.28) saturate(1.2); } 100% { filter: brightness(1) saturate(1.025); } }
 .puzzle-board.is-complete .puzzle-piece {
   border-radius: 0;
   box-shadow: none;
 }
+.puzzle-board.is-complete .puzzle-piece::after { border-width: 0; }
 .puzzle-board.is-complete {
   gap: 0 !important;
   transition: gap .22s;
