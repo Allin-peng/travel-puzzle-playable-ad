@@ -2,8 +2,8 @@
   'use strict';
 
   const ASSETS = {
-    level1: './%E7%BE%8E%E6%9C%AF%E7%B4%A0%E6%9D%90/%E5%8A%A8%E7%89%A9%E6%88%BF%E8%BD%A6.jpg',
-    level2: './%E7%BE%8E%E6%9C%AF%E7%B4%A0%E6%9D%90/%E6%97%85%E8%A1%8C%E9%A3%8E%E6%99%AF1.jpg'
+    level1: './assets/level-1.jpg',
+    level2: './assets/level-2.jpg'
   };
 
   class SwapPuzzle {
