@@ -103,7 +103,7 @@
             .map(item => Number(item.dataset.id));
           const snapPlan = targetGroup.some(id => groupIds.includes(id))
             ? null
-            : this.findSnapPlan(groupIds, sourceSlots, targetGroup);
+            : this.findSnapPlan(groupIds, sourceSlots, targetId, event, rect);
           if (snapPlan) {
             this.moveGroup(snapPlan.ids, snapPlan.sourceSlots, snapPlan.targetSlots);
           } else {
@@ -126,35 +126,52 @@
       return targetSlots;
     }
 
-    findSnapPlan(groupIds, sourceSlots, targetGroup) {
+    findSnapPlan(groupIds, sourceSlots, fixedId, event, boardRect) {
       const slotById = Array(this.size * this.size);
       this.order.forEach((id, slot) => { slotById[id] = slot; });
+
+      const fixedSlot = slotById[fixedId];
+      const cellWidth = boardRect.width / this.size;
+      const cellHeight = boardRect.height / this.size;
+      const localX = ((event.clientX - boardRect.left) / cellWidth) % 1;
+      const localY = ((event.clientY - boardRect.top) / cellHeight) % 1;
+      const edgeZone = .24;
 
       for (const movingId of groupIds) {
         const movingOriginalRow = Math.floor(movingId / this.size);
         const movingOriginalCol = movingId % this.size;
-        for (const fixedId of targetGroup) {
-          const fixedOriginalRow = Math.floor(fixedId / this.size);
-          const fixedOriginalCol = fixedId % this.size;
-          const originalRowDelta = movingOriginalRow - fixedOriginalRow;
-          const originalColDelta = movingOriginalCol - fixedOriginalCol;
-          if (Math.abs(originalRowDelta) + Math.abs(originalColDelta) !== 1) continue;
+        const fixedOriginalRow = Math.floor(fixedId / this.size);
+        const fixedOriginalCol = fixedId % this.size;
+        const originalRowDelta = movingOriginalRow - fixedOriginalRow;
+        const originalColDelta = movingOriginalCol - fixedOriginalCol;
+        if (Math.abs(originalRowDelta) + Math.abs(originalColDelta) !== 1) continue;
 
-          const fixedSlot = slotById[fixedId];
-          const desiredRow = Math.floor(fixedSlot / this.size) + originalRowDelta;
-          const desiredCol = fixedSlot % this.size + originalColDelta;
-          if (desiredRow < 0 || desiredRow >= this.size || desiredCol < 0 || desiredCol >= this.size) continue;
+        // Snap only when the pointer is deliberately released near the exact
+        // matching edge. Drops in the middle keep their requested grid slot.
+        const nearMatchingEdge =
+          (originalColDelta === -1 && localX <= edgeZone) ||
+          (originalColDelta === 1 && localX >= 1 - edgeZone) ||
+          (originalRowDelta === -1 && localY <= edgeZone) ||
+          (originalRowDelta === 1 && localY >= 1 - edgeZone);
+        if (!nearMatchingEdge) continue;
 
+        const desiredRow = Math.floor(fixedSlot / this.size) + originalRowDelta;
+        const desiredCol = fixedSlot % this.size + originalColDelta;
+
+        if (desiredRow >= 0 && desiredRow < this.size && desiredCol >= 0 && desiredCol < this.size) {
           const movingSlot = slotById[movingId];
           const deltaRow = desiredRow - Math.floor(movingSlot / this.size);
           const deltaCol = desiredCol - movingSlot % this.size;
           const targetSlots = this.translatedSlots(sourceSlots, deltaRow, deltaCol);
           if (targetSlots) return { ids: groupIds, sourceSlots, targetSlots };
+        }
 
-          // The correct side is outside the board. Reposition both connected
-          // groups together inside the board while preserving their true
-          // relative arrangement in the source image.
-          const combinedIds = [...groupIds, ...targetGroup];
+          // The correct side is outside the board. Reposition the two groups
+          // only after an intentional edge drop.
+          const fixedGroup = this.pieces
+            .filter(item => item.dataset.group === this.pieces[fixedId].dataset.group)
+            .map(item => Number(item.dataset.id));
+          const combinedIds = [...groupIds, ...fixedGroup];
           const minOriginalRow = Math.min(...combinedIds.map(id => Math.floor(id / this.size)));
           const maxOriginalRow = Math.max(...combinedIds.map(id => Math.floor(id / this.size)));
           const minOriginalCol = Math.min(...combinedIds.map(id => id % this.size));
@@ -172,7 +189,6 @@
             return (top + relativeRow) * this.size + left + relativeCol;
           });
           return { ids: combinedIds, sourceSlots: combinedSourceSlots, targetSlots: combinedTargetSlots };
-        }
       }
       return null;
     }
