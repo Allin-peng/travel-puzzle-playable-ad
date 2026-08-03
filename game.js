@@ -275,17 +275,31 @@
   const toast = document.getElementById('toast');
   const replayButton = document.getElementById('replayButton');
 
-  const firstOrder = [0, 1, 3, 2];
+  function hasCorrectNeighbors(order, size) {
+    const slots = Array(order.length);
+    order.forEach((id, slot) => { slots[id] = slot; });
+    for (let id = 0; id < order.length; id++) {
+      const slot = slots[id];
+      if (id % size < size - 1 && slots[id + 1] === slot + 1 && Math.floor(slots[id + 1] / size) === Math.floor(slot / size)) return true;
+      if (id + size < order.length && slots[id + size] === slot + size) return true;
+    }
+    return false;
+  }
 
   function shuffledOrder(size) {
-    const values = Array.from({ length: size * size }, (_, index) => index);
-    for (let i = values.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [values[i], values[j]] = [values[j], values[i]];
-    }
-    if (values.every((value, index) => value === index)) [values[0], values[1]] = [values[1], values[0]];
+    const count = size * size;
+    let values;
+    do {
+      values = Array.from({ length: count }, (_, index) => index);
+      for (let i = values.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [values[i], values[j]] = [values[j], values[i]];
+      }
+    } while (hasCorrectNeighbors(values, size));
     return values;
   }
+
+  let firstOrder = shuffledOrder(2);
 
   const puzzle1 = new SwapPuzzle(
     document.getElementById('board1'), 2, ASSETS.level1, firstOrder,
@@ -326,6 +340,7 @@
     finish.setAttribute('aria-hidden', 'true');
     levelTrack.classList.remove('show-level-two');
     finger.classList.remove('hide');
+    firstOrder = shuffledOrder(2);
     puzzle1.reset(firstOrder);
     puzzle2.reset(shuffledOrder(5));
   });
