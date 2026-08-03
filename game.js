@@ -11,11 +11,11 @@
     level1Badge: '轻松热身',
     level1Title: '拼好动物房车',
     level1Subtitle: '拖动拼图，交换它们的位置',
-    level1Tip: '将图块完整放入格子，拼对后自动合成',
+    level1Tip: '拼出完整矩形后，图块自动合成',
     level2Badge: '高能挑战',
     level2Title: '还原旅行风景',
     level2Subtitle: '25 块拼图，挑战你的观察力',
-    level2Tip: '完整落格后检测，合成大块整体拖动',
+    level2Tip: '只有完整矩形才能合成并整体拖动',
     difficultyKicker: 'LEVEL UP',
     difficultyTitle: '难度飙升',
     difficultySubtitle: '真正的挑战，现在开始！',
@@ -204,22 +204,67 @@
       const slots = Array(count);
       this.order.forEach((id, slot) => { slots[id] = slot; });
 
-      // Discover new correct edge contacts. Bonds are append-only: after two
-      // pieces merge, their connection is permanent for the rest of the level.
+      // Restore permanent groups first. Existing bonds are never removed.
+      this.bonds.forEach(bond => {
+        const [a, b] = bond.split(':').map(Number);
+        unite(a, b);
+      });
+
+      const contacts = [];
       for (let id = 0; id < count; id++) {
         const slot = slots[id];
         const currentRow = Math.floor(slot / this.size);
         if (id % this.size < this.size - 1 && slots[id + 1] === slot + 1 && Math.floor(slots[id + 1] / this.size) === currentRow) {
-          this.bonds.add(`${id}:${id + 1}`);
+          contacts.push([id, id + 1]);
         }
         if (id + this.size < count && slots[id + this.size] === slot + this.size) {
-          this.bonds.add(`${id}:${id + this.size}`);
+          contacts.push([id, id + this.size]);
         }
       }
 
-      this.bonds.forEach(bond => {
-        const [a, b] = bond.split(':').map(Number);
-        unite(a, b);
+      const membersOf = root => {
+        const members = [];
+        for (let id = 0; id < count; id++) if (find(id) === root) members.push(id);
+        return members;
+      };
+      const formsCompleteRectangle = ids => {
+        const rows = ids.map(id => Math.floor(id / this.size));
+        const cols = ids.map(id => id % this.size);
+        const minRow = Math.min(...rows);
+        const maxRow = Math.max(...rows);
+        const minCol = Math.min(...cols);
+        const maxCol = Math.max(...cols);
+        if ((maxRow - minRow + 1) * (maxCol - minCol + 1) !== ids.length) return false;
+        const set = new Set(ids);
+        for (let row = minRow; row <= maxRow; row++) {
+          for (let col = minCol; col <= maxCol; col++) {
+            if (!set.has(row * this.size + col)) return false;
+          }
+        }
+        return true;
+      };
+
+      // A correct edge contact is not enough on its own. Two groups become
+      // permanent only when their union fully fills a rectangle in the source
+      // image. L, T and any shape with a missing corner remain separate.
+      let merged;
+      do {
+        merged = false;
+        for (const [a, b] of contacts) {
+          const rootA = find(a);
+          const rootB = find(b);
+          if (rootA === rootB) continue;
+          const combined = [...membersOf(rootA), ...membersOf(rootB)];
+          if (!formsCompleteRectangle(combined)) continue;
+          unite(rootA, rootB);
+          merged = true;
+          break;
+        }
+      } while (merged);
+
+      // Remove every seam inside each newly completed rectangle.
+      contacts.forEach(([a, b]) => {
+        if (find(a) === find(b)) this.bonds.add(`${a}:${b}`);
       });
 
       const groups = new Map();
