@@ -75,8 +75,10 @@
       if (!this.drag || event.pointerId !== this.drag.pointerId) return;
       const dx = event.clientX - this.drag.x;
       const dy = event.clientY - this.drag.y;
+      const pixelDx = Math.round(dx);
+      const pixelDy = Math.round(dy);
       this.drag.groupPieces.forEach(item => {
-        item.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+        item.style.transform = `translate(${pixelDx}px, ${pixelDy}px)`;
       });
     }
 

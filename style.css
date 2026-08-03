@@ -92,7 +92,6 @@ button { font: inherit; }
   background-clip: border-box;
   cursor: grab;
   transition: filter .18s;
-  will-change: transform;
 }
 .puzzle-piece::after {
   content: "";
@@ -115,13 +114,16 @@ button { font: inherit; }
   border: 0 !important;
   box-shadow: none !important;
 }
+.puzzle-piece.grouped.bond-left { margin-left: -1px; }
+.puzzle-piece.grouped.bond-right { margin-right: -1px; }
+.puzzle-piece.grouped.bond-top { margin-top: -1px; }
+.puzzle-piece.grouped.bond-bottom { margin-bottom: -1px; }
 .puzzle-piece.merge-pop { animation: mergePop .32s ease-out; }
 .expert-shell .puzzle-piece { border-radius: 0; }
 .puzzle-piece:active { cursor: grabbing; }
 .puzzle-piece.dragging-group {
   z-index: 20;
-  filter: brightness(1.08) saturate(1.06);
-  filter: drop-shadow(0 8px 7px rgba(31, 39, 41, .28)) brightness(1.06) saturate(1.06);
+  filter: brightness(1.04) saturate(1.04);
   transition: none;
 }
 .puzzle-piece.dragging-group::after { border-color: rgba(255, 255, 255, .96); }
