@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>数字二合试玩编辑器</title><link rel="stylesheet" href="editor.css"></head>
+<body>
+  <header><div><small>PLAYABLE BUILDER</small><h1>数字二合试玩编辑器</h1></div><div class="actions"><button id="reset">恢复默认</button><button class="primary" id="export">导出配置</button></div></header>
+  <main>
+    <aside>
+      <section class="open"><button class="section-title"><b>01</b> 基础设置 <i>⌃</i></button><div class="controls two">
+        <label>页面标题<input data-field="pageTitle"></label><label>品牌名称<input data-field="brand"></label>
+        <label>主色<input data-field="primaryColor" type="color"></label><label>辅助色<input data-field="secondaryColor" type="color"></label>
+        <label>转场时长<select data-field="transitionDuration"><option value="900">0.9 秒</option><option value="1250">1.25 秒</option><option value="1700">1.7 秒</option></select></label>
+        <label class="toggle">显示教学指引<input data-field="showGuide" type="checkbox"><span></span></label>
+      </div><div class="controls media-controls">
+        <label class="image-picker">
+          <input id="backgroundFile" type="file" accept="image/png,image/jpeg,image/webp">
+          <img id="backgroundThumb" alt="背景图预览">
+          <span><b>更换背景图</b><small>按图片比例居中 cover 裁剪，不拉伸不平铺</small></span>
+        </label>
+        <label class="image-picker">
+          <input id="boardFile" type="file" accept="image/png,image/jpeg,image/webp">
+          <img id="boardThumb" alt="棋盘图预览">
+          <span><b>更换棋盘图</b><small>棋盘位置固定，仅替换棋盘皮肤</small></span>
+        </label>
+        <button class="apply-media" id="applyMedia" type="button">应用背景/棋盘图到预览</button>
+      </div></section>
+      <section class="open"><button class="section-title"><b>02</b> 第一关 · 教学 <i>⌃</i></button><div class="controls">
+        <label>关卡标签<input data-field="level1Badge"></label><label>主标题<input data-field="level1Title"></label><label>副标题<input data-field="level1Subtitle"></label><label>底部提示<input data-field="level1Hint"></label>
+      </div></section>
+      <section class="open"><button class="section-title"><b>03</b> 第二关 · 挑战 <i>⌃</i></button><div class="controls">
+        <label>关卡标签<input data-field="level2Badge"></label><label>主标题<input data-field="level2Title"></label><label>副标题<input data-field="level2Subtitle"></label><label>底部提示<input data-field="level2Hint"></label>
+      </div></section>
+      <section><button class="section-title"><b>04</b> 转场与通关 <i>⌄</i></button><div class="controls">
+        <div class="two"><label>转场小字<input data-field="transitionKicker"></label><label>转场标题<input data-field="transitionTitle"></label></div>
+        <label>转场副标题<input data-field="transitionSubtitle"></label><div class="two"><label>通关标签<input data-field="finishBadge"></label><label>通关标题<input data-field="finishTitle"></label></div>
+        <label>通关副标题<input data-field="finishSubtitle"></label><label>按钮文字<input data-field="replayText"></label>
+      </div></section>
+    </aside>
+    <article><div class="preview-bar"><span><i id="dot"></i><em id="status">实时手机预览</em></span><button id="restart">↻ 重新开始</button></div><div class="phone"><div class="speaker"></div><iframe id="preview" src="index.html" title="数字二合试玩预览"></iframe></div><p>修改左侧设置后会自动同步到预览。</p></article>
+  </main><div class="toast" id="toast"></div><script src="editor.js"></script>
+</body></html>

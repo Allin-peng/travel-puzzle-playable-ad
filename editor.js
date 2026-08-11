@@ -2,39 +2,75 @@
   'use strict';
 
   const defaults = {
-    pageTitle: '旅途拼图', brand: '旅途拼图', primaryColor: '#ff9c3f', secondaryColor: '#4e9c74',
-    transitionDuration: 1100, showFinger: true, level1Size: 2, level2Size: 5,
-    level1Badge: '轻松热身', level1Title: '拼好动物房车', level1Subtitle: '拖动拼图，交换它们的位置',
-    level1Tip: '拼出完整矩形后，图块自动合成', level2Badge: '高能挑战', level2Title: '还原旅行风景',
-    level2Subtitle: '25 块拼图，挑战你的观察力', level2Tip: '等面积区域可以整体交换位置',
-    difficultyKicker: 'LEVEL UP', difficultyTitle: '难度飙升', difficultySubtitle: '真正的挑战，现在开始！',
-    finishBadge: '挑战成功', finishTitle: '太棒了！', finishSubtitle: '两幅拼图都完成啦', replayText: '再玩一次',
-    level1Complete: '完美！第一关完成', level1Image: './assets/level-1.jpg', level2Image: './assets/level-2.jpg'
+    pageTitle: '数字二合',
+    brand: '数字二合',
+    primaryColor: '#ff7a45',
+    secondaryColor: '#7357ff',
+    backgroundImage: '',
+    boardImage: '',
+    level1Badge: '轻松教学',
+    level1Title: '拖动合成数字 4',
+    level1Subtitle: '棋盘初始包含两个 1 级、一个 2 级、一个 3 级元素',
+    level1Hint: '拖动相同元素叠到一起，依次合成 2、3、4',
+    level2Badge: '篮筐挑战',
+    level2Title: '消耗能量发射元素',
+    level2Subtitle: '篮筐每次发射消耗 2 能量，合成高级元素补充能量',
+    level2Hint: '拖动同级元素合成，能量不足时先通过合成补能',
+    transitionKicker: 'LEVEL UP',
+    transitionTitle: '进入篮筐关',
+    transitionSubtitle: '数字链和字母链会同时出现',
+    transitionDuration: 1250,
+    finishBadge: '合成大师',
+    finishTitle: '挑战成功！',
+    finishSubtitle: '你完成了两关二合目标',
+    replayText: '再玩一次',
+    showGuide: true
   };
+
   let config = { ...defaults };
-  let templateFiles;
-  let previewTimer;
-  let previewUrl;
-  let previewVersion = 0;
-
+  const pendingImages = { background: defaults.backgroundImage, board: defaults.boardImage };
+  const emptyPreview = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+  let timer;
+  let version = 0;
+  let ready = false;
+  const frame = document.getElementById('preview');
   const fields = [...document.querySelectorAll('[data-field]')];
-  const frame = document.getElementById('previewFrame');
-  const toast = document.getElementById('editorToast');
-  const previewStatusDot = document.getElementById('previewStatusDot');
-  const previewStatusText = document.getElementById('previewStatusText');
+  const status = document.getElementById('status');
+  const dot = document.getElementById('dot');
+  const toast = document.getElementById('toast');
 
-  async function loadTemplates() {
-    const [html, css, js, image1, image2] = await Promise.all([
-      fetch('./index.html').then(r => r.text()), fetch('./style.css').then(r => r.text()), fetch('./game.js').then(r => r.text()),
-      fetch('./assets/level-1.jpg').then(r => r.blob()).then(blobToDataUrl), fetch('./assets/level-2.jpg').then(r => r.blob()).then(blobToDataUrl)
-    ]);
-    templateFiles = { html, css, js };
-    config.level1Image = image1;
-    config.level2Image = image2;
-    document.getElementById('level1Thumb').src = image1;
-    document.getElementById('level2Thumb').src = image2;
-    fillFields();
-    updatePreview();
+  function fill() {
+    fields.forEach(field => {
+      const value = config[field.dataset.field];
+      if (field.type === 'checkbox') field.checked = Boolean(value);
+      else field.value = value;
+    });
+    pendingImages.background = config.backgroundImage;
+    pendingImages.board = config.boardImage;
+    updateThumb('background');
+    updateThumb('board');
+    document.getElementById('applyMedia').classList.remove('pending');
+  }
+
+  function updateThumb(type) {
+    const image = document.getElementById(`${type}Thumb`);
+    const value = pendingImages[type];
+    image.src = value || emptyPreview;
+    image.alt = value ? `${type === 'background' ? '背景' : '棋盘'}图预览` : '';
+    image.classList.toggle('empty', !value);
+  }
+
+  function send() {
+    if (!ready) return;
+    version++;
+    frame.contentWindow.postMessage({ type: 'merge-editor-config', version, config }, '*');
+    dot.className = 'loading';
+    status.textContent = '正在更新预览…';
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(send, 80);
   }
 
   function blobToDataUrl(blob) {
@@ -46,119 +82,83 @@
     });
   }
 
-  function fillFields() {
-    fields.forEach(field => {
-      const value = config[field.dataset.field];
-      if (field.type === 'checkbox') field.checked = Boolean(value);
-      else field.value = value;
-    });
-  }
-
-  function readField(field) {
-    const key = field.dataset.field;
-    config[key] = field.type === 'checkbox' ? field.checked : field.type === 'select-one' ? (/Size|Duration/.test(key) ? Number(field.value) : field.value) : field.value;
-    schedulePreview();
-  }
-
-  function composePlayable() {
-    const safeConfig = JSON.stringify(config).replace(/</g, '\\u003c');
-    const safeGame = templateFiles.js.replace(/<\/script/gi, '<\\/script');
-    let html = templateFiles.html
-      .replace(/\s*<link rel="preload"[^>]+>/g, '')
-      .replace('<link rel="stylesheet" href="style.css">', `<style>\n${templateFiles.css}\n</style>`)
-      .replace('<script src="game.js"></script>', `<script>window.PUZZLE_CONFIG=${safeConfig};<\/script>\n<script>\n${safeGame}\n<\/script>`);
-    return html;
-  }
-
-  function schedulePreview() {
-    clearTimeout(previewTimer);
-    setPreviewStatus('loading', '正在更新预览…');
-    previewTimer = setTimeout(updatePreview, 220);
-  }
-
-  function updatePreview() {
-    if (!templateFiles) return;
-    const version = ++previewVersion;
-    const oldUrl = previewUrl;
-    try {
-      const playableBlob = new Blob([composePlayable()], { type: 'text/html;charset=utf-8' });
-      previewUrl = URL.createObjectURL(playableBlob);
-      frame.onload = () => {
-        if (version !== previewVersion) return;
-        if (oldUrl) URL.revokeObjectURL(oldUrl);
-        setPreviewStatus('', '实时手机预览 · 已更新');
-      };
-      frame.onerror = () => {
-        if (version === previewVersion) setPreviewStatus('error', '预览加载失败');
-      };
-      frame.removeAttribute('srcdoc');
-      frame.src = previewUrl;
-      setPreviewStatus('loading', '正在更新预览…');
-    } catch (error) {
-      console.error(error);
-      setPreviewStatus('error', '预览生成失败');
-      showToast('预览生成失败，请重新刷新编辑器');
-    }
-  }
-
-  function setPreviewStatus(state, text) {
-    previewStatusDot.className = state;
-    previewStatusText.textContent = text;
-  }
-
-  function exportPlayable() {
-    if (!templateFiles) return;
-    const blob = new Blob([composePlayable()], { type: 'text/html;charset=utf-8' });
-    const link = document.createElement('a');
-    const cleanName = (config.pageTitle || 'puzzle-playable').replace(/[\\/:*?"<>|]/g, '-');
-    link.href = URL.createObjectURL(blob);
-    link.download = `${cleanName}.html`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    showToast('已导出单文件 HTML，可直接发布');
-  }
-
-  function showToast(message) {
+  function show(message) {
     toast.textContent = message;
     toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2200);
+    setTimeout(() => toast.classList.remove('show'), 1800);
   }
 
   fields.forEach(field => {
-    let lastValue;
     const update = () => {
-      const value = field.type === 'checkbox' ? field.checked : field.value;
-      if (value === lastValue) return;
-      lastValue = value;
-      readField(field);
+      config[field.dataset.field] = field.type === 'checkbox'
+        ? field.checked
+        : field.tagName === 'SELECT'
+          ? Number(field.value)
+          : field.value;
+      schedule();
     };
     field.addEventListener('input', update);
     field.addEventListener('change', update);
   });
+
   document.querySelectorAll('.section-title').forEach(button => button.addEventListener('click', () => {
-    const section = button.closest('.control-section');
+    const section = button.closest('section');
     section.classList.toggle('open');
-    button.querySelector('b').textContent = section.classList.contains('open') ? '⌃' : '⌄';
+    button.querySelector('i').textContent = section.classList.contains('open') ? '⌃' : '⌄';
   }));
-  ['level1', 'level2'].forEach(level => {
-    document.getElementById(`${level}File`).addEventListener('change', async event => {
+
+  ['background', 'board'].forEach(type => {
+    document.getElementById(`${type}File`).addEventListener('change', async event => {
       const file = event.target.files[0];
       if (!file) return;
-      if (file.size > 6 * 1024 * 1024) return showToast('图片请控制在 6MB 以内');
-      config[`${level}Image`] = await blobToDataUrl(file);
-      document.getElementById(`${level}Thumb`).src = config[`${level}Image`];
-      updatePreview();
+      if (file.size > 6 * 1024 * 1024) {
+        show('图片请控制在 6MB 以内');
+        return;
+      }
+      pendingImages[type] = await blobToDataUrl(file);
+      updateThumb(type);
+      document.getElementById('applyMedia').classList.add('pending');
+      show('图片已选择，点击应用后同步到预览');
     });
   });
-  document.getElementById('refreshPreview').addEventListener('click', updatePreview);
-  document.getElementById('exportButton').addEventListener('click', exportPlayable);
-  document.getElementById('resetButton').addEventListener('click', () => {
-    config = { ...defaults, level1Image: config.level1Image, level2Image: config.level2Image };
-    fillFields(); updatePreview(); showToast('设置已恢复默认');
+
+  document.getElementById('applyMedia').addEventListener('click', () => {
+    config.backgroundImage = pendingImages.background;
+    config.boardImage = pendingImages.board;
+    document.getElementById('applyMedia').classList.remove('pending');
+    send();
+    show('背景/棋盘图已应用到预览');
   });
 
-  loadTemplates().catch(error => {
-    console.error(error);
-    showToast('模板加载失败，请通过在线地址打开编辑器');
+  frame.addEventListener('load', () => {
+    ready = true;
+    send();
   });
+  window.addEventListener('message', event => {
+    if (event.source !== frame.contentWindow || event.data?.type !== 'merge-editor-applied' || event.data.version !== version) return;
+    dot.className = '';
+    status.textContent = '实时手机预览 · 已更新';
+  });
+
+  document.getElementById('restart').addEventListener('click', () => {
+    ready = false;
+    frame.src = `index.html?preview=${Date.now()}`;
+  });
+  document.getElementById('reset').addEventListener('click', () => {
+    config = { ...defaults };
+    fill();
+    send();
+    show('设置已恢复默认');
+  });
+  document.getElementById('export').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'merge-ad-config.json';
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    show('已导出配置文件');
+  });
+
+  fill();
 })();
