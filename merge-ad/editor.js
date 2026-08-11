@@ -14,7 +14,7 @@
     level1Hint: '拖动相同元素叠到一起，依次合成 2、3、4',
     level2Badge: '篮筐挑战',
     level2Title: '消耗能量发射元素',
-    level2Subtitle: '篮筐每次发射消耗 2 能量，合成高级元素补充能量',
+    level2Subtitle: '篮筐每次发射消耗 1 能量，合成高级元素补充能量',
     level2Hint: '拖动同级元素合成，能量不足时先通过合成补能',
     transitionKicker: 'LEVEL UP',
     transitionTitle: '进入篮筐关',
