@@ -33,7 +33,7 @@
   };
   const ENERGY_MAX = 20;
   const FIRE_COST = 2;
-  const ENERGY_REWARD = { 2: 1, 3: 3, 4: 9, 5: 27 };
+  const ENERGY_REWARD = { 2: 1, 3: 2, 4: 4, 5: 8, 6: 10 };
 
   const config = Object.assign({}, DEFAULTS, window.MERGE_CONFIG || {});
   const $ = id => document.getElementById(id);

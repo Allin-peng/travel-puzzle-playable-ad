@@ -33,11 +33,14 @@
   let timer;
   let version = 0;
   let ready = false;
+  let previewUrl = '';
+  let templateFiles = null;
   const frame = document.getElementById('preview');
   const fields = [...document.querySelectorAll('[data-field]')];
   const status = document.getElementById('status');
   const dot = document.getElementById('dot');
   const toast = document.getElementById('toast');
+  const applyMediaButton = document.getElementById('applyMedia');
 
   function fill() {
     fields.forEach(field => {
@@ -49,7 +52,7 @@
     pendingImages.board = config.boardImage;
     updateThumb('background');
     updateThumb('board');
-    document.getElementById('applyMedia').classList.remove('pending');
+    applyMediaButton.classList.remove('pending');
   }
 
   function updateThumb(type) {
@@ -60,17 +63,63 @@
     image.classList.toggle('empty', !value);
   }
 
+  async function fetchText(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`${url} 加载失败 (${response.status})`);
+    return response.text();
+  }
+
+  async function loadTemplates() {
+    try {
+      const [html, css, js] = await Promise.all([
+        fetchText('./index.html'),
+        fetchText('./style.css'),
+        fetchText('./game.js')
+      ]);
+      templateFiles = { html, css, js };
+      renderPreview();
+    } catch (error) {
+      console.error(error);
+      setStatus('error', '模板加载失败，已切换普通预览');
+      frame.src = `index.html?preview=${Date.now()}`;
+    }
+  }
+
+  function composePreview() {
+    const safeConfig = JSON.stringify(config).replace(/</g, '\\u003c');
+    const safeGame = templateFiles.js.replace(/<\/script/gi, '<\\/script');
+    return templateFiles.html
+      .replace('<link rel="stylesheet" href="style.css">', `<style>\n${templateFiles.css}\n</style>`)
+      .replace('<script src="game.js"></script>', `<script>window.MERGE_CONFIG=${safeConfig};<\/script>\n<script>\n${safeGame}\n<\/script>`);
+  }
+
+  function renderPreview() {
+    ready = false;
+    setStatus('loading', '正在加载预览…');
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    if (!templateFiles) {
+      frame.src = `index.html?preview=${Date.now()}`;
+      return;
+    }
+    previewUrl = URL.createObjectURL(new Blob([composePreview()], { type: 'text/html;charset=utf-8' }));
+    frame.src = previewUrl;
+  }
+
   function send() {
     if (!ready) return;
     version++;
     frame.contentWindow.postMessage({ type: 'merge-editor-config', version, config }, '*');
-    dot.className = 'loading';
-    status.textContent = '正在更新预览…';
+    setStatus('loading', '正在更新预览…');
   }
 
   function schedule() {
     clearTimeout(timer);
     timer = setTimeout(send, 80);
+  }
+
+  function setStatus(state, text) {
+    dot.className = state;
+    status.textContent = text;
   }
 
   function blobToDataUrl(blob) {
@@ -117,15 +166,15 @@
       }
       pendingImages[type] = await blobToDataUrl(file);
       updateThumb(type);
-      document.getElementById('applyMedia').classList.add('pending');
+      applyMediaButton.classList.add('pending');
       show('图片已选择，点击应用后同步到预览');
     });
   });
 
-  document.getElementById('applyMedia').addEventListener('click', () => {
+  applyMediaButton.addEventListener('click', () => {
     config.backgroundImage = pendingImages.background;
     config.boardImage = pendingImages.board;
-    document.getElementById('applyMedia').classList.remove('pending');
+    applyMediaButton.classList.remove('pending');
     send();
     show('背景/棋盘图已应用到预览');
   });
@@ -136,14 +185,10 @@
   });
   window.addEventListener('message', event => {
     if (event.source !== frame.contentWindow || event.data?.type !== 'merge-editor-applied' || event.data.version !== version) return;
-    dot.className = '';
-    status.textContent = '实时手机预览 · 已更新';
+    setStatus('', '实时手机预览 · 已更新');
   });
 
-  document.getElementById('restart').addEventListener('click', () => {
-    ready = false;
-    frame.src = `index.html?preview=${Date.now()}`;
-  });
+  document.getElementById('restart').addEventListener('click', renderPreview);
   document.getElementById('reset').addEventListener('click', () => {
     config = { ...defaults };
     fill();
@@ -161,4 +206,5 @@
   });
 
   fill();
+  loadTemplates();
 })();
