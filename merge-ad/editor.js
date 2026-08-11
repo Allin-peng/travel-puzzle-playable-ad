@@ -89,8 +89,8 @@
     const safeConfig = JSON.stringify(config).replace(/</g, '\\u003c');
     const safeGame = templateFiles.js.replace(/<\/script/gi, '<\\/script');
     return templateFiles.html
-      .replace('<link rel="stylesheet" href="style.css">', `<style>\n${templateFiles.css}\n</style>`)
-      .replace('<script src="game.js"></script>', `<script>window.MERGE_CONFIG=${safeConfig};<\/script>\n<script>\n${safeGame}\n<\/script>`);
+      .replace(/<link rel="stylesheet" href="style\.css(?:\?[^"]*)?">/, `<style>\n${templateFiles.css}\n</style>`)
+      .replace(/<script src="game\.js(?:\?[^"]*)?"><\/script>/, `<script>window.MERGE_CONFIG=${safeConfig};<\/script>\n<script>\n${safeGame}\n<\/script>`);
   }
 
   function renderPreview() {
